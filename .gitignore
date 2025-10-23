@@ -1,0 +1,28 @@
+# General
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-*
+
+# Environment variables
+.env
+.env.local
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+*.pyc
+__pycache__/
+
+# OS
+Thumbs.db
