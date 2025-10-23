@@ -49,10 +49,10 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - [x] Implement VM status monitoring
 
 #### 2.2 VM Database Integration
-- [ ] Extend VM model with all required fields
-- [ ] Implement VM metadata storage and retrieval
-- [ ] Create VM lifecycle event logging
-- [ ] Add VM quota enforcement based on user credits
+- [x] Extend VM model with all required fields
+- [x] Implement VM metadata storage and retrieval
+- [x] Create VM lifecycle event logging
+- [x] Add VM quota enforcement based on user credits
 
 #### 2.3 VM Management UI
 - [ ] Create VM launch form with OS selection
@@ -171,11 +171,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 17% (17/103 tasks completed)
+### Overall Progress: 20% (21/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (12/12 tasks)
-- Phase 2 (VM Lifecycle): 56% (5/9 tasks)
+- Phase 2 (VM Lifecycle): 100% (9/9 tasks)
 - Phase 3 (Monitoring): 0% (0/9 tasks)
 - Phase 4 (SOC Dashboard): 0% (0/9 tasks)
 - Phase 5 (Admin Dashboard): 0% (0/9 tasks)
@@ -184,11 +184,26 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 2.1 - VM Manager Implementation with Vagrant integration
+**✅ Completed:** Phase 2 - VM Lifecycle Management (100%)
 
-**Next:** Phase 2.2 - VM Database Integration
+**Next:** Phase 2.3 - VM Management UI
 
 ## 📝 Recent Changes
+
+**2025-10-23 22:XX:** ✅ Completed Phase 2.2 - VM Database Integration
+- Created comprehensive Pydantic schemas for VM operations (VMCreate, VMResponse, VMUpdate, VMAction, VMQuotaCheck)
+- Implemented VM API endpoints: POST /api/vms (create), GET /api/vms (list), GET /api/vms/{id} (get), PATCH /api/vms/{id} (update)
+- Added VM action endpoint: POST /api/vms/{id}/action (start/stop/restart/destroy)
+- Implemented credit quota enforcement system with calculate_vm_cost() and check_user_quota()
+- Added deduct_user_credits() function with automatic event logging
+- Created VM metadata storage and retrieval functions (update_vm_metadata, get_vm_metadata)
+- Implemented VM uptime tracking with update_vm_uptime()
+- Added helper functions: get_vm_by_id(), get_vm_by_name(), get_all_vms()
+- Integrated quota check into VM creation workflow (checks credits before creating VM)
+- Added admin VM management endpoints: GET /api/admin/vms, POST /api/admin/vms/{id}/action
+- Implemented event endpoints: GET /api/events (user), GET /api/admin/events (admin)
+- All VM operations now automatically log events to database for SOC feed
+- **Phase 2 (VM Lifecycle Management) is now 100% complete!**
 
 **2025-10-23 21:58:** ✅ Completed Phase 2.1 - VM Manager Implementation with Vagrant integration
 - Created comprehensive VMManager class in vm_manager.py
@@ -235,4 +250,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-23 21:58*
+*Last updated: 2025-10-23 22:50*

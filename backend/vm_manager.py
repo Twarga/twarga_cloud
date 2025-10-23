@@ -185,6 +185,19 @@ end
             Tuple of (success: bool, message: str)
         """
         try:
+            # Check user quota and credits
+            can_create, quota_msg, cost = self.check_user_quota(
+                db, user, vm.ram_mb, vm.disk_gb, vm.cpu_cores
+            )
+            
+            if not can_create:
+                logger.warning(f"User {user.username} failed quota check: {quota_msg}")
+                return False, quota_msg
+            
+            # Deduct credits from user
+            if not self.deduct_user_credits(db, user, cost, f"VM creation: {vm.name}"):
+                return False, "Failed to deduct credits"
+            
             vm_dir = self._get_vm_dir(vm.name, user.id)
             
             # Check if VM directory already exists
@@ -216,16 +229,20 @@ end
             
             # Update VM status to pending
             vm.status = "pending"
+            
+            # Store cost in metadata
+            self.update_vm_metadata(db, vm, {"creation_cost": cost})
+            
             db.commit()
             
             # Log event
             event = Event(
                 type="vm",
                 severity="info",
-                message=f"User '{user.username}' initiated VM creation: {vm.name}",
+                message=f"User '{user.username}' initiated VM creation: {vm.name} (cost: {cost} credits)",
                 user_id=user.id,
                 vm_id=vm.id,
-                details=vm_config
+                details={**vm_config, "cost": cost, "user_credits_remaining": user.credits}
             )
             db.add(event)
             db.commit()
@@ -594,6 +611,191 @@ end
         except Exception as e:
             logger.error(f"Exception reading VM info: {e}")
             return None
+    
+    def calculate_vm_cost(self, ram_mb: int, disk_gb: int, cpu_cores: int) -> int:
+        """
+        Calculate VM creation cost in credits
+        
+        Args:
+            ram_mb: RAM in MB
+            disk_gb: Disk size in GB
+            cpu_cores: Number of CPU cores
+            
+        Returns:
+            Cost in credits
+        """
+        cost = 0
+        cost += (ram_mb // 512) * 5
+        cost += (disk_gb // 10) * 2
+        cost += cpu_cores * 10
+        return max(cost, 10)
+    
+    def check_user_quota(self, db: Session, user: User, ram_mb: int, disk_gb: int, cpu_cores: int) -> tuple:
+        """
+        Check if user has enough credits to create VM
+        
+        Args:
+            db: Database session
+            user: User object
+            ram_mb: RAM in MB
+            disk_gb: Disk size in GB
+            cpu_cores: Number of CPU cores
+            
+        Returns:
+            Tuple of (can_create: bool, message: str, cost: int)
+        """
+        cost = self.calculate_vm_cost(ram_mb, disk_gb, cpu_cores)
+        
+        if user.credits < cost:
+            return False, f"Insufficient credits. Required: {cost}, Available: {user.credits}", cost
+        
+        return True, f"Credits available. Cost: {cost}, Remaining: {user.credits - cost}", cost
+    
+    def deduct_user_credits(self, db: Session, user: User, amount: int, reason: str = "VM creation") -> bool:
+        """
+        Deduct credits from user account
+        
+        Args:
+            db: Database session
+            user: User object
+            amount: Credits to deduct
+            reason: Reason for deduction
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if user.credits < amount:
+                logger.error(f"Cannot deduct {amount} credits from user {user.username} - insufficient balance")
+                return False
+            
+            user.credits -= amount
+            db.commit()
+            
+            event = Event(
+                type="system",
+                severity="info",
+                message=f"Deducted {amount} credits from user '{user.username}' for {reason}",
+                user_id=user.id,
+                details={"amount": amount, "reason": reason, "remaining": user.credits}
+            )
+            db.add(event)
+            db.commit()
+            
+            logger.info(f"Deducted {amount} credits from user {user.username} for {reason}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Exception deducting credits: {e}")
+            db.rollback()
+            return False
+    
+    def update_vm_metadata(self, db: Session, vm: VM, metadata: Dict) -> bool:
+        """
+        Update VM metadata in database
+        
+        Args:
+            db: Database session
+            vm: VM object
+            metadata: Metadata dictionary
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if vm.vm_metadata is None:
+                vm.vm_metadata = {}
+            
+            vm.vm_metadata.update(metadata)
+            db.commit()
+            
+            logger.info(f"Updated metadata for VM {vm.name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Exception updating VM metadata: {e}")
+            db.rollback()
+            return False
+    
+    def get_vm_metadata(self, vm: VM) -> Dict:
+        """
+        Get VM metadata from database
+        
+        Args:
+            vm: VM object
+            
+        Returns:
+            Metadata dictionary
+        """
+        return vm.vm_metadata if vm.vm_metadata else {}
+    
+    def update_vm_uptime(self, db: Session, vm: VM, user: User) -> bool:
+        """
+        Update VM uptime from .vm_info file
+        
+        Args:
+            db: Database session
+            vm: VM object
+            user: User who owns the VM
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            vm_dir = self._get_vm_dir(vm.name, user.id)
+            vm_info = self.get_vm_info(vm_dir)
+            
+            if vm_info and 'created_at' in vm_info:
+                created_at = datetime.fromisoformat(vm_info['created_at'])
+                uptime = (datetime.utcnow() - created_at).total_seconds()
+                vm.uptime_seconds = int(uptime)
+                db.commit()
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Exception updating VM uptime: {e}")
+            return False
+    
+    def get_all_vms(self, db: Session) -> List[VM]:
+        """
+        Get all VMs (admin function)
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            List of all VM objects
+        """
+        return db.query(VM).all()
+    
+    def get_vm_by_id(self, db: Session, vm_id: int) -> Optional[VM]:
+        """
+        Get VM by ID
+        
+        Args:
+            db: Database session
+            vm_id: VM ID
+            
+        Returns:
+            VM object or None if not found
+        """
+        return db.query(VM).filter(VM.id == vm_id).first()
+    
+    def get_vm_by_name(self, db: Session, vm_name: str, user_id: int) -> Optional[VM]:
+        """
+        Get VM by name and user ID
+        
+        Args:
+            db: Database session
+            vm_name: VM name
+            user_id: User ID
+            
+        Returns:
+            VM object or None if not found
+        """
+        return db.query(VM).filter(VM.name == vm_name, VM.owner_id == user_id).first()
 
 
 # Global VM manager instance
