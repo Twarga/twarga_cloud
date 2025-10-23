@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Dashboard - Twarga Cloud MVP{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="border-4 border-dashed border-gray-200 rounded-lg">
+        <!-- SOC Dashboard Content -->
+        <div class="p-6">
+            <h1 class="text-2xl font-semibold text-gray-900">Security Operations Center</h1>
+            
+            <!-- Event Statistics -->
+            <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                                    <span class="text-white font-medium">ℹ️</span>
+                                </div>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Info Events
+                                    </dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="info-count">
+                                        0
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                                    <span class="text-white font-medium">⚠️</span>
+                                </div>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Warning Events
+                                    </dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="warning-count">
+                                        0
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
+                                    <span class="text-white font-medium">🚨</span>
+                                </div>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Critical Events
+                                    </dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="critical-count">
+                                        0
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                                    <span class="text-white font-medium">📊</span>
+                                </div>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Total Events
+                                    </dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="total-count">
+                                        0
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Filters -->
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900">Event Filters</h2>
+                <div class="mt-3 bg-white shadow rounded-lg p-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                            <label for="event-type" class="block text-sm font-medium text-gray-700">Event Type</label>
+                            <select id="event-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="all">All Events</option>
+                                <option value="vm">VM Lifecycle</option>
+                                <option value="auth">Authentication</option>
+                                <option value="system">System</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="severity" class="block text-sm font-medium text-gray-700">Severity</label>
+                            <select id="severity" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="all">All Severities</option>
+                                <option value="info">Info</option>
+                                <option value="warning">Warning</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="time-range" class="block text-sm font-medium text-gray-700">Time Range</label>
+                            <select id="time-range" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="1h">Last Hour</option>
+                                <option value="24h">Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Event Feed -->
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900">Live Event Feed</h2>
+                <div class="mt-3 bg-white shadow rounded-lg">
+                    <div id="soc-feed" hx-get="/soc/feed" hx-trigger="every 3s" hx-target="#soc-feed" hx-swap="innerHTML">
+                        <div class="p-4">
+                            <div class="border p-3 mb-2 bg-blue-50 rounded-md">
+                                <div class="flex items-center">
+                                    <span class="text-blue-600 font-medium">[17:22:03] INFO</span>
+                                    <span class="ml-2 text-gray-700">System initialized - SOC dashboard ready</span>
+                                </div>
+                            </div>
+                            <div class="border p-3 mb-2 bg-gray-50 rounded-md">
+                                <div class="flex items-center">
+                                    <span class="text-gray-600 font-medium">[17:22:00] INFO</span>
+                                    <span class="ml-2 text-gray-700">Waiting for security events...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Actions -->
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900">Event Actions</h2>
+                <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <span class="mr-2">📥</span>
+                        Export Events
+                    </button>
+                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <span class="mr-2">🔄</span>
+                        Refresh Feed
+                    </button>
+                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                        <span class="mr-2">🧹</span>
+                        Clear Old Events
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto-refresh Info -->
+            <div class="mt-8 bg-green-50 border-l-4 border-green-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-green-700">
+                            This feed automatically refreshes every 3 seconds to show the latest security events.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

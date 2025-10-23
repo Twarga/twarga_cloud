@@ -1,0 +1,2 @@
+# This directory will store user-specific VM folders
+# Each VM will have its own subdirectory with a Vagrantfile
