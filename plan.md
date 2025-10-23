@@ -12,8 +12,8 @@ This document outlines the project plan, tasks, and goals.
 
 ### Phase 1: Project Setup
 - [x] Task 1: Create plan.md and progress.md files
-- [ ] Task 2: Define project structure and architecture
-- [ ] Task 3: Set up development environment
+- [x] Task 2: Define project structure and architecture
+- [x] Task 3: Set up development environment
 
 ### Phase 2: Core Development
 - [ ] Task 4: Implement core functionality
