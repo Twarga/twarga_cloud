@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Lab Builder - LabsBakery Core{% endblock %}
+
+{% block content %}
+<div x-data="labBuilder()" x-cloak class="flex h-screen overflow-hidden">
+    <!-- Left Sidebar - VM Palette -->
+    <div class="w-64 bg-white shadow-lg p-4 overflow-y-auto">
+        <h2 class="text-lg font-bold mb-4 text-gray-800">VM Palette</h2>
+        <div class="space-y-2">
+            <!-- Kali Linux -->
+            <button @click="addNode('kali')" 
+                    class="w-full p-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition flex items-center space-x-2 shadow">
+                <span class="text-2xl">🐧</span>
+                <span class="font-medium">Kali Linux</span>
+            </button>
+            
+            <!-- Ubuntu -->
+            <button @click="addNode('ubuntu')" 
+                    class="w-full p-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition flex items-center space-x-2 shadow">
+                <span class="text-2xl">🐧</span>
+                <span class="font-medium">Ubuntu</span>
+            </button>
+            
+            <!-- Windows -->
+            <button @click="addNode('windows')" 
+                    class="w-full p-3 bg-gradient-to-r from-blue-700 to-blue-800 text-white rounded-lg hover:from-blue-800 hover:to-blue-900 transition flex items-center space-x-2 shadow">
+                <span class="text-2xl">🪟</span>
+                <span class="font-medium">Windows</span>
+            </button>
+            
+            <!-- Web Server -->
+            <button @click="addNode('webserver')" 
+                    class="w-full p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition flex items-center space-x-2 shadow">
+                <span class="text-2xl">🌐</span>
+                <span class="font-medium">Web Server</span>
+            </button>
+            
+            <!-- Database -->
+            <button @click="addNode('database')" 
+                    class="w-full p-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition flex items-center space-x-2 shadow">
+                <span class="text-2xl">📊</span>
+                <span class="font-medium">Database</span>
+            </button>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="mt-6 p-3 bg-blue-50 rounded-lg">
+            <p class="text-xs text-gray-600">
+                <strong>Quick Start:</strong><br>
+                1. Click a VM type to add to canvas<br>
+                2. Drag nodes to position<br>
+                3. Click node to edit properties<br>
+                4. Click "Bake Lab" when ready
+            </p>
+        </div>
+    </div>
+
+    <!-- Center - Canvas Area -->
+    <div class="flex-1 relative bg-gray-50 overflow-hidden">
+        <!-- Canvas Toolbar -->
+        <div class="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center shadow z-10">
+            <div class="flex space-x-2">
+                <button @click="saveProject()" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium">
+                    💾 Save
+                </button>
+                <button @click="bakeLabproject()" 
+                        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium">
+                    🧁 Bake Lab
+                </button>
+            </div>
+            <div class="text-sm text-gray-600">
+                <span x-text="nodes.length"></span> VMs | 
+                Zoom: <span x-text="Math.round(zoom * 100)"></span>%
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <div id="canvas" 
+             class="absolute inset-0 mt-16"
+             @click.self="selectedNode = null">
+            <!-- Nodes will be added here dynamically -->
+            <template x-for="node in nodes" :key="node.id">
+                <div :id="node.id"
+                     class="vm-node"
+                     :class="{ 'selected': selectedNode && selectedNode.id === node.id }"
+                     :style="`left: ${node.x}px; top: ${node.y}px;`"
+                     @click.stop="selectNode(node)">
+                    <div class="vm-node-header">
+                        <span x-text="getNodeIcon(node.type)"></span>
+                        <span x-text="node.name"></span>
+                    </div>
+                    <div class="vm-node-body">
+                        <div>💾 <span x-text="node.ram"></span>MB</div>
+                        <div>⚙️ <span x-text="node.cpu"></span> cores</div>
+                    </div>
+                    <div class="vm-node-status" :data-status="node.status || 'stopped'">
+                        <span x-text="node.status || 'stopped'"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Right Sidebar - Properties Panel -->
+    <div x-show="selectedNode" 
+         class="w-80 bg-white shadow-lg p-4 overflow-y-auto border-l border-gray-200">
+        <h2 class="text-lg font-bold mb-4 text-gray-800">Properties</h2>
+        
+        <template x-if="selectedNode">
+            <div class="space-y-4">
+                <!-- Node Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Name
+                    </label>
+                    <input type="text" 
+                           x-model="selectedNode.name"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- RAM -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        RAM (MB)
+                    </label>
+                    <input type="number" 
+                           x-model="selectedNode.ram"
+                           min="512"
+                           step="512"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="mt-1 text-xs text-gray-500">
+                        <span x-text="(selectedNode.ram / 1024).toFixed(1)"></span> GB
+                    </p>
+                </div>
+
+                <!-- CPU Cores -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        CPU Cores
+                    </label>
+                    <input type="number" 
+                           x-model="selectedNode.cpu"
+                           min="1"
+                           max="8"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- Network -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Network
+                    </label>
+                    <select x-model="selectedNode.network"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="net_1">Lab Network 1</option>
+                        <option value="net_2">Lab Network 2</option>
+                        <option value="isolated">Isolated</option>
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-4 border-t border-gray-200 space-y-2">
+                    <button @click="duplicateNode(selectedNode)" 
+                            class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                        📋 Duplicate
+                    </button>
+                    <button @click="deleteNode(selectedNode)" 
+                            class="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="fixed bottom-0 left-0 right-0 bg-gray-800 text-white px-4 py-2 flex justify-between items-center text-sm">
+    <div x-data="labBuilder()">
+        <span>Status: </span>
+        <span x-text="status" class="font-medium"></span>
+        <span class="ml-4">|</span>
+        <span class="ml-4">2 VMs Running</span>
+        <span class="ml-4">|</span>
+        <span class="ml-4">RAM: 3.8/8GB</span>
+        <span class="ml-4">|</span>
+        <span class="ml-4">CPU: 15%</span>
+    </div>
+    <div>
+        <span class="text-gray-400">LabsBakery Core v1.0.0</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function labBuilder() {
+    return {
+        // Project data
+        project: null,
+        nodes: [],
+        links: [],
+        
+        // UI state
+        selectedNode: null,
+        zoom: 1.0,
+        pan: { x: 0, y: 0 },
+        
+        // Runtime state
+        status: 'stopped',  // stopped, starting, running, error
+        vmStatuses: {},
+        progress: [],
+        
+        // Node counter for unique names
+        nodeCounters: {
+            kali: 0,
+            ubuntu: 0,
+            windows: 0,
+            webserver: 0,
+            database: 0
+        },
+        
+        // Methods
+        init() {
+            console.log('🧁 LabsBakery Core initialized');
+            this.loadProject();
+        },
+        
+        addNode(type) {
+            this.nodeCounters[type]++;
+            const node = {
+                id: `node_${Date.now()}`,
+                type: type,
+                name: `${type.charAt(0).toUpperCase() + type.slice(1)}-${this.nodeCounters[type]}`,
+                x: 100 + (this.nodes.length * 50),
+                y: 100 + (this.nodes.length * 50),
+                ram: 2048,
+                cpu: 2,
+                network: 'net_1',
+                status: 'stopped'
+            };
+            this.nodes.push(node);
+            console.log('Added node:', node);
+        },
+        
+        selectNode(node) {
+            this.selectedNode = node;
+        },
+        
+        deleteNode(node) {
+            if (confirm(`Delete ${node.name}?`)) {
+                this.nodes = this.nodes.filter(n => n.id !== node.id);
+                this.selectedNode = null;
+            }
+        },
+        
+        duplicateNode(node) {
+            const newNode = {
+                ...node,
+                id: `node_${Date.now()}`,
+                name: `${node.name}-copy`,
+                x: node.x + 20,
+                y: node.y + 20
+            };
+            this.nodes.push(newNode);
+        },
+        
+        getNodeIcon(type) {
+            const icons = {
+                kali: '🐧',
+                ubuntu: '🐧',
+                windows: '🪟',
+                webserver: '🌐',
+                database: '📊'
+            };
+            return icons[type] || '💻';
+        },
+        
+        async saveProject() {
+            console.log('Saving project...');
+            const canvas_state = JSON.stringify({
+                nodes: this.nodes,
+                links: this.links
+            });
+            
+            // TODO: API call to save
+            alert('Project saved! (TODO: API integration)');
+        },
+        
+        async bakeLabproject() {
+            if (this.nodes.length === 0) {
+                alert('Add some VMs first!');
+                return;
+            }
+            
+            this.status = 'starting';
+            console.log('Baking lab...', this.nodes);
+            
+            // TODO: API call to start VMs
+            alert(`Baking lab with ${this.nodes.length} VMs... (TODO: API integration)`);
+        },
+        
+        async loadProject() {
+            // TODO: Load from API if project ID exists
+            console.log('Ready to load project');
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LabsBakery Lab Package Schema",
+  "description": "JSON schema for validating LabsBakery .labpkg files",
+  "type": "object",
+  "required": ["schemaVersion", "metadata", "canvas", "ingredients"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version number for compatibility checking"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["title", "author"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Lab title"
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Lab author name"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Lab description"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Lab tags for categorization"
+        }
+      }
+    },
+    "canvas": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "x", "y"],
+            "properties": {
+              "id": {"type": "string"},
+              "type": {"type": "string"},
+              "x": {"type": "number"},
+              "y": {"type": "number"},
+              "name": {"type": "string"},
+              "ram": {"type": "integer", "minimum": 512},
+              "cpu": {"type": "integer", "minimum": 1}
+            }
+          },
+          "description": "Canvas nodes (VMs)"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "network"],
+            "properties": {
+              "from": {"type": "string"},
+              "to": {"type": "string"},
+              "network": {"type": "string"}
+            }
+          },
+          "description": "Canvas links (network connections)"
+        }
+      }
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "box"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "box": {"type": "string"},
+          "ram": {"type": "integer", "minimum": 512},
+          "cpu": {"type": "integer", "minimum": 1},
+          "network": {"type": "string"},
+          "ip": {
+            "type": "string",
+            "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          }
+        }
+      },
+      "description": "VM ingredients (configuration)"
+    },
+    "tutorial": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "content"],
+            "properties": {
+              "id": {"type": "string"},
+              "title": {"type": "string"},
+              "content": {"type": "object"},
+              "linkedNode": {"type": "string"},
+              "required": {"type": "boolean"}
+            }
+          }
+        }
+      },
+      "description": "Tutorial content and steps"
+    },
+    "providerHints": {
+      "type": "object",
+      "properties": {
+        "linux": {"type": "string"},
+        "windows": {"type": "string"}
+      },
+      "description": "Provider hints for different platforms"
+    }
+  }
+}
