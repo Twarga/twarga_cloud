@@ -140,11 +140,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - [x] Implement terminal session logging
 
 #### 6.2 Terminal UI Integration
-- [ ] Create terminal iframe embedding
-- [ ] Add terminal access buttons to VM dashboard
-- [ ] Implement terminal session state management
-- [ ] Add terminal access permissions check
-- [ ] Create terminal session timeout handling
+- [x] Create terminal iframe embedding
+- [x] Add terminal access buttons to VM dashboard
+- [x] Implement terminal session state management
+- [x] Add terminal access permissions check
+- [x] Create terminal session timeout handling
 
 ### 🏗️ Phase 7: Polish and Documentation (Day 7)
 
@@ -171,7 +171,7 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 90% (93/103 tasks completed)
+### Overall Progress: 95% (98/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (22/22 tasks)
@@ -179,16 +179,60 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - Phase 3 (Monitoring): 100% (15/15 tasks)
 - Phase 4 (SOC Dashboard): 100% (15/15 tasks)
 - Phase 5 (Admin Dashboard): 100% (18/18 tasks)
-- Phase 6 (Web Terminal): 50% (5/10 tasks)
+- Phase 6 (Web Terminal): 100% (10/10 tasks)
 - Phase 7 (Polish & Docs): 0% (0/9 tasks)
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 6.1 (Terminal Backend Setup) - 100% complete!
+**✅ Completed:** Phase 6.2 (Terminal UI Integration) - 100% complete!
 
-**Next:** Phase 6.2 - Terminal UI Integration
+**Next:** Phase 7.1 - UI/UX Improvements
 
 ## 📝 Recent Changes
+
+**2025-10-26 00:00:** ✅ Completed Phase 6.2 - Terminal UI Integration
+- Created comprehensive terminal modal in dashboard.html with full-screen iframe embedding:
+  - Dark-themed terminal UI with gray-900 background and proper terminal aesthetics
+  - Modal sized at 80vh height for optimal terminal viewing
+  - Terminal header showing VM name, connection status, and close button
+  - Loading state with animated spinner during connection establishment
+  - Error state with descriptive messages and retry options
+  - Full-screen iframe for ttyd terminal with clipboard permissions
+- Added "Terminal" button to VM dashboard for running VMs:
+  - Button only visible when VM status is "running"
+  - Placed in action buttons section next to Details, Start, Stop, Restart buttons
+  - Icon-enhanced button with terminal icon for better UX
+- Implemented comprehensive terminal session state management:
+  - Added terminal state variables: showTerminal, terminalVM, terminalSession, terminalLoading, terminalError, terminalUrl, terminalCheckInterval
+  - openTerminal() function to initiate or reconnect to terminal sessions
+  - closeTerminal() function to properly stop sessions and cleanup state
+  - buildTerminalUrl() helper to construct authenticated ttyd URLs with basic auth
+  - Session reconnection logic - checks for existing active sessions before starting new ones
+- Added terminal access permissions check:
+  - Backend already enforces permissions (user owns VM or is admin) via get_current_active_user
+  - Frontend checks VM ownership through authenticated API calls
+  - Terminal only accessible for running VMs with proper status validation
+  - Session tokens included in iframe URL for authentication
+- Created terminal session timeout handling system:
+  - startSessionMonitoring() function with 10-second interval checks
+  - Periodic session health monitoring via /api/terminal/session/{vm_id} endpoint
+  - Automatic detection of expired or closed sessions
+  - User-friendly error messages when session becomes inactive
+  - Automatic cleanup of monitoring intervals when terminal closed
+  - Session cleanup on modal close to free resources
+- Terminal features:
+  - Iframe embeds ttyd web terminal with basic authentication (user:token@localhost:port)
+  - Full terminal functionality via SSH to VM using 'vagrant ssh'
+  - Clipboard read/write permissions for copy/paste operations
+  - Connected status indicator badge when session is active
+  - Graceful handling of connection failures with detailed error messages
+  - Support for reconnecting to existing sessions without creating duplicates
+- Integration with existing backend APIs:
+  - POST /api/terminal/start/{vm_id} - Start new terminal session
+  - DELETE /api/terminal/stop/{vm_id} - Stop terminal session
+  - GET /api/terminal/session/{vm_id} - Check session status
+- **Phase 6.2 (Terminal UI Integration) is now 100% complete! (5/5 tasks)**
+- **Phase 6 (Web Terminal Integration) is now 100% complete with all 10 tasks done!**
 
 **2025-10-25 23:30:** ✅ Completed Phase 6.1 - Terminal Backend Setup
 - Created comprehensive TerminalManager class in terminal.py for web-based terminal access
