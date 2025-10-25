@@ -28,6 +28,7 @@ from .schemas import (
 from .vm_manager import vm_manager
 from .monitor import system_monitor
 from .soc import soc_manager
+from .terminal import terminal_manager
 
 # Configure logging
 import os
@@ -94,6 +95,16 @@ async def shutdown_event():
     """Application shutdown event"""
     logger.info("Twarga Cloud MVP shutting down...")
     logger.info(f"Shutdown time: {datetime.now().isoformat()}")
+    
+    # Stop all terminal sessions
+    try:
+        from .database import SessionLocal
+        db = SessionLocal()
+        stopped = terminal_manager.stop_all_sessions(db)
+        logger.info(f"Stopped {stopped} terminal sessions during shutdown")
+        db.close()
+    except Exception as e:
+        logger.error(f"Error stopping terminal sessions during shutdown: {e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -1203,6 +1214,211 @@ async def admin_get_all_soc_events(
         }
         for e in events
     ]
+
+# ============================================================================
+# Terminal Access API Endpoints
+# ============================================================================
+
+@app.post("/api/terminal/start/{vm_id}")
+async def start_terminal_session(
+    vm_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Start a web terminal session for a VM"""
+    # Get VM
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    # Check if user owns the VM or is admin
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access terminal for this VM"
+        )
+    
+    # Check if VM is running
+    if vm.status != "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"VM is not running (current status: {vm.status})"
+        )
+    
+    # Get VM directory
+    from pathlib import Path
+    vm_dir = Path("vms") / f"user{current_user.id}-{vm.name}"
+    
+    if not vm_dir.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM directory not found"
+        )
+    
+    # Start terminal session
+    session = terminal_manager.start_terminal_session(db, vm, current_user, vm_dir)
+    
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start terminal session. Check if ttyd is installed and VM is accessible."
+        )
+    
+    return {
+        "session_id": session.session_id,
+        "vm_id": vm.id,
+        "vm_name": vm.name,
+        "port": session.port,
+        "url": f"http://localhost:{session.port}",
+        "token": session.token,
+        "created_at": session.created_at.isoformat(),
+        "message": "Terminal session started successfully"
+    }
+
+@app.delete("/api/terminal/stop/{vm_id}")
+async def stop_terminal_session(
+    vm_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Stop a web terminal session for a VM"""
+    # Get VM
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    # Check if user owns the VM or is admin
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to stop terminal for this VM"
+        )
+    
+    # Stop terminal session
+    success = terminal_manager.stop_terminal_session(db, vm_id, current_user)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active terminal session found for this VM"
+        )
+    
+    return {
+        "vm_id": vm_id,
+        "message": "Terminal session stopped successfully"
+    }
+
+@app.get("/api/terminal/session/{vm_id}")
+async def get_terminal_session_info(
+    vm_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get terminal session information for a VM"""
+    # Get VM
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    # Check if user owns the VM or is admin
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access terminal info for this VM"
+        )
+    
+    # Get session
+    session = terminal_manager.get_terminal_session(vm_id)
+    
+    if not session:
+        return {
+            "vm_id": vm_id,
+            "active": False,
+            "message": "No active terminal session"
+        }
+    
+    return {
+        "vm_id": vm_id,
+        "active": True,
+        "session_id": session.session_id,
+        "port": session.port,
+        "url": f"http://localhost:{session.port}",
+        "created_at": session.created_at.isoformat(),
+        "last_activity": session.last_activity.isoformat(),
+        "is_alive": session.is_alive()
+    }
+
+@app.get("/api/terminal/sessions")
+async def list_terminal_sessions(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """List active terminal sessions for current user"""
+    sessions = terminal_manager.list_active_sessions(user=current_user)
+    
+    return {
+        "count": len(sessions),
+        "sessions": sessions
+    }
+
+@app.get("/api/admin/terminal/sessions")
+async def admin_list_all_terminal_sessions(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: List all active terminal sessions"""
+    sessions = terminal_manager.list_active_sessions()
+    
+    return {
+        "count": len(sessions),
+        "sessions": sessions
+    }
+
+@app.post("/api/admin/terminal/cleanup")
+async def admin_cleanup_terminal_sessions(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Clean up expired terminal sessions"""
+    cleaned = terminal_manager.cleanup_expired_sessions(db)
+    
+    return {
+        "cleaned": cleaned,
+        "message": f"Cleaned up {cleaned} expired sessions"
+    }
+
+@app.post("/api/admin/terminal/stop-all")
+async def admin_stop_all_terminal_sessions(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Emergency stop all terminal sessions"""
+    stopped = terminal_manager.stop_all_sessions(db)
+    
+    # Log admin action
+    event = Event(
+        type="admin",
+        severity="warning",
+        message=f"Admin '{current_user.username}' stopped all terminal sessions",
+        user_id=current_user.id,
+        details={"sessions_stopped": stopped}
+    )
+    db.add(event)
+    db.commit()
+    
+    return {
+        "stopped": stopped,
+        "message": f"Emergency stop: {stopped} terminal sessions stopped"
+    }
 
 if __name__ == "__main__":
     uvicorn.run(
