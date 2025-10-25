@@ -71,11 +71,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - [x] Create metrics API endpoints
 
 #### 3.2 VM Monitoring
-- [ ] Implement per-VM resource usage tracking
-- [ ] Create .vm_info JSON file structure
-- [ ] Add VM status update from vagrant status output
-- [ ] Implement VM uptime tracking
-- [ ] Create VM metrics API endpoints
+- [x] Implement per-VM resource usage tracking
+- [x] Create .vm_info JSON file structure
+- [x] Add VM status update from vagrant status output
+- [x] Implement VM uptime tracking
+- [x] Create VM metrics API endpoints
 
 #### 3.3 Monitoring Dashboard
 - [ ] Create /monitor endpoint with live metrics
@@ -171,12 +171,12 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 30% (31/103 tasks completed)
+### Overall Progress: 35% (36/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (12/12 tasks)
 - Phase 2 (VM Lifecycle): 100% (14/14 tasks)
-- Phase 3 (Monitoring): 56% (5/9 tasks)
+- Phase 3 (Monitoring): 100% (10/10 tasks)
 - Phase 4 (SOC Dashboard): 0% (0/9 tasks)
 - Phase 5 (Admin Dashboard): 0% (0/9 tasks)
 - Phase 6 (Web Terminal): 0% (0/6 tasks)
@@ -184,11 +184,34 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 3.1 - System Monitoring Implementation (100%)
+**✅ Completed:** Phase 3.2 - VM Monitoring (100%)
 
-**Next:** Phase 3.2 - VM Monitoring
+**Next:** Phase 3.3 - Monitoring Dashboard
 
 ## 📝 Recent Changes
+
+**2025-10-25 16:00:** ✅ Completed Phase 3.2 - VM Monitoring
+- Enhanced SystemMonitor class with VM-specific monitoring capabilities
+- Implemented per-VM resource usage tracking in monitor.py
+- Added _load_vm_info() method to read .vm_info JSON files from VM directories
+- Added _get_vm_dir() method to locate VM directories by user and VM name
+- Enhanced get_vm_metrics() to read actual resource data from .vm_info files
+- Now tracks CPU, memory, disk usage percentages for each VM
+- Calculates absolute resource usage (memory used MB, disk used GB)
+- Monitors network I/O per VM (received/transmitted MB)
+- Tracks VM uptime in seconds and hours
+- Created update_vm_resource_usage() method to update .vm_info with latest metrics
+- Enhanced store_vm_metrics() to store additional metrics:
+  - vm_memory_used_mb, vm_disk_used_gb
+  - vm_network_rx_mb, vm_network_tx_mb
+- Integrated with existing VM status tracking from vm_manager.py
+- VM metrics now include: status, IP address, allocated resources, usage percentages
+- .vm_info file structure already implemented in vm_manager.py (lines 97-113)
+- VM status update from vagrant status already implemented in vm_manager.py (lines 547-577)
+- VM uptime tracking already implemented in vm_manager.py (lines 732-759)
+- VM metrics API endpoints already implemented in main.py (lines 199-267)
+- **Phase 3.2 is now 100% complete!**
+- **Phase 3 (Monitoring System) is now 100% complete!**
 
 **2025-10-25 15:30:** ✅ Completed Phase 3.1 - System Monitoring Implementation
 - Created comprehensive SystemMonitor class in monitor.py
@@ -296,4 +319,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-25 15:30*
+*Last updated: 2025-10-25 16:00*
