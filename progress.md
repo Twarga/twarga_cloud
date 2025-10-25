@@ -121,13 +121,13 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - [x] Implement user management interface
 - [x] Add global VM management controls
 - [x] Create system-wide monitoring view
-- [ ] Add admin-specific SOC feed
+- [x] Add admin-specific SOC feed
 
 #### 5.3 Admin Features
 - [x] Implement VM emergency stop/destroy functions
 - [x] Add user credit adjustment interface
 - [x] Create system health indicators
-- [ ] Add bulk user operations
+- [x] Add bulk user operations
 - [x] Implement admin activity logging
 
 ### 🏗️ Phase 6: Web Terminal Integration (Day 6)
@@ -171,24 +171,55 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 83% (86/103 tasks completed)
+### Overall Progress: 85% (88/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (22/22 tasks)
 - Phase 2 (VM Lifecycle): 100% (14/14 tasks)
 - Phase 3 (Monitoring): 100% (15/15 tasks)
 - Phase 4 (SOC Dashboard): 100% (15/15 tasks)
-- Phase 5 (Admin Dashboard): 89% (16/18 tasks)
+- Phase 5 (Admin Dashboard): 100% (18/18 tasks)
 - Phase 6 (Web Terminal): 0% (0/10 tasks)
 - Phase 7 (Polish & Docs): 0% (0/9 tasks)
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 5.1, 5.2, 5.3 - Admin Panel Backend, UI, and Features (89%)
+**✅ Completed:** Phase 5 (Admin Dashboard) - 100% complete!
 
-**Next:** Phase 5 remaining tasks (Admin SOC feed, bulk operations) or Phase 6 - Web Terminal Integration
+**Next:** Phase 6 - Web Terminal Integration
 
 ## 📝 Recent Changes
+
+**2025-10-25 22:00:** ✅ Completed Phase 5.2 & 5.3 - Admin-specific SOC Feed & Bulk User Operations
+- Added comprehensive admin-specific SOC feed section to admin.html:
+  - Real-time security event display with auto-refresh every 10 seconds
+  - Event filtering by severity (info, warning, critical) and type (vm, auth, admin, security, system)
+  - Color-coded event display matching severity levels (blue for info, yellow for warning, red for critical)
+  - Scrollable event feed with max height for better UX
+  - Shows event message, type, severity, timestamp, user, and VM information
+  - Integrated with existing /api/admin/soc/all-events endpoint
+- Implemented comprehensive bulk user operations:
+  - Added checkbox selection system for users with "select all" functionality
+  - Created bulk action buttons that appear when users are selected
+  - Implemented bulk credit adjustment modal for adjusting credits for multiple users at once
+  - Added bulk activate/deactivate functions for managing multiple user accounts
+  - Selection count display showing number of selected users
+  - Visual feedback with highlighted rows for selected users (indigo background)
+  - Clear selection button to deselect all users
+  - All bulk operations show confirmation dialogs and success/failure counts
+- Enhanced user management table with checkbox column
+- Added new state variables: selectedUsers, socEvents, socLoading, socFilters, bulkCreditModal
+- Implemented new JavaScript functions:
+  - toggleUserSelection() - Toggle individual user selection
+  - toggleSelectAll() - Select/deselect all users
+  - openBulkCreditModal() - Open bulk credit adjustment modal
+  - bulkAdjustCredits() - Perform bulk credit adjustments with progress tracking
+  - bulkDeactivate() - Deactivate multiple users at once
+  - bulkActivate() - Activate multiple users at once
+  - loadSOCEvents() - Fetch and display security events with filtering
+- **Phase 5.2 (Admin Dashboard UI) is now 100% complete! (5/5 tasks)**
+- **Phase 5.3 (Admin Features) is now 100% complete! (5/5 tasks)**
+- **Phase 5 (Admin Dashboard) is now 100% complete with all 18 tasks done!**
 
 **2025-10-25 21:30:** ✅ Completed Phase 5.1, 5.2, 5.3 - Admin Panel Backend, UI, and Core Features
 - Created comprehensive admin user management API endpoints:
@@ -448,4 +479,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-25 21:30*
+*Last updated: 2025-10-25 22:00*
