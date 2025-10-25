@@ -27,6 +27,7 @@ from .schemas import (
 )
 from .vm_manager import vm_manager
 from .monitor import system_monitor
+from .soc import soc_manager
 
 # Configure logging
 import os
@@ -754,6 +755,168 @@ async def admin_list_all_events(
     """Admin: List all events"""
     events = db.query(Event).order_by(Event.created_at.desc()).limit(limit).all()
     return events
+
+# ==================== SOC ENDPOINTS ====================
+
+@app.get("/api/soc/events")
+async def get_soc_events(
+    limit: int = 50,
+    event_type: str = None,
+    severity: str = None,
+    hours: int = 24,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get recent events with optional filtering"""
+    events = soc_manager.get_recent_events(
+        db=db,
+        limit=limit,
+        event_type=event_type,
+        severity=severity,
+        user_id=current_user.id if not current_user.is_admin else None,
+        hours=hours
+    )
+    
+    return [
+        {
+            "id": e.id,
+            "type": e.type,
+            "severity": e.severity,
+            "message": e.message,
+            "details": e.details,
+            "user_id": e.user_id,
+            "vm_id": e.vm_id,
+            "created_at": e.created_at.isoformat()
+        }
+        for e in events
+    ]
+
+@app.get("/api/soc/statistics")
+async def get_soc_statistics(
+    hours: int = 24,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get event statistics for SOC dashboard"""
+    stats = soc_manager.get_event_statistics(db=db, hours=hours)
+    return stats
+
+@app.get("/api/soc/user-activity/{user_id}")
+async def get_user_activity(
+    user_id: int,
+    hours: int = 24,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Analyze user activity"""
+    activity = soc_manager.analyze_user_activity(db=db, user_id=user_id, hours=hours)
+    return activity
+
+@app.post("/api/soc/ssh-attempt")
+async def log_ssh_attempt(
+    vm_id: int,
+    success: bool,
+    username: str,
+    ip_address: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Log an SSH login attempt"""
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    # Check if user owns the VM or is admin
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to log SSH attempts for this VM"
+        )
+    
+    event = soc_manager.log_ssh_attempt(
+        db=db,
+        vm_id=vm_id,
+        success=success,
+        username=username,
+        ip_address=ip_address
+    )
+    
+    # Check for brute force attack
+    is_attack, failed_count = soc_manager.detect_brute_force(db=db, vm_id=vm_id)
+    
+    return {
+        "event_id": event.id if event else None,
+        "success": success,
+        "brute_force_detected": is_attack,
+        "failed_attempts": failed_count
+    }
+
+@app.get("/api/soc/brute-force-check/{vm_id}")
+async def check_brute_force(
+    vm_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Check if a VM is under brute force attack"""
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    # Check if user owns the VM or is admin
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to check this VM"
+        )
+    
+    is_attack, failed_count = soc_manager.detect_brute_force(db=db, vm_id=vm_id)
+    
+    return {
+        "vm_id": vm_id,
+        "vm_name": vm.name,
+        "brute_force_detected": is_attack,
+        "failed_attempts": failed_count
+    }
+
+@app.get("/api/admin/soc/all-events")
+async def admin_get_all_soc_events(
+    limit: int = 100,
+    event_type: str = None,
+    severity: str = None,
+    hours: int = 24,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Get all SOC events with filtering"""
+    events = soc_manager.get_recent_events(
+        db=db,
+        limit=limit,
+        event_type=event_type,
+        severity=severity,
+        hours=hours
+    )
+    
+    return [
+        {
+            "id": e.id,
+            "type": e.type,
+            "severity": e.severity,
+            "message": e.message,
+            "details": e.details,
+            "user_id": e.user_id,
+            "vm_id": e.vm_id,
+            "created_at": e.created_at.isoformat(),
+            "user": e.user.username if e.user else None,
+            "vm_name": e.vm.name if e.vm else None
+        }
+        for e in events
+    ]
 
 if __name__ == "__main__":
     uvicorn.run(
