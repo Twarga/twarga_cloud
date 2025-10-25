@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LabsBakery Core{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .vm-node {
+            position: absolute;
+            background: white;
+            border: 2px solid #3B82F6;
+            border-radius: 8px;
+            padding: 12px;
+            min-width: 150px;
+            cursor: move;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.2s;
+        }
+        
+        .vm-node:hover {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .vm-node.selected {
+            border-color: #10B981;
+            border-width: 3px;
+        }
+        
+        .vm-node-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .vm-node-body {
+            font-size: 0.875rem;
+            color: #6B7280;
+        }
+        
+        .vm-node-status {
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .vm-node-status[data-status="stopped"] {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+        
+        .vm-node-status[data-status="running"] {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        
+        #canvas {
+            background-image: 
+                linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <span class="text-3xl">🧁</span>
+                    <h1 class="text-2xl font-bold">LabsBakery Core</h1>
+                    <span class="text-sm text-blue-200">v1.0.0</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button class="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-medium transition">
+                        New Lab
+                    </button>
+                    <button class="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-medium transition">
+                        Import
+                    </button>
+                    <button class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 font-medium transition">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-300 py-4 mt-8">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">🧁 LabsBakery Core - Build cyber labs like designing slides</p>
+        </div>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
