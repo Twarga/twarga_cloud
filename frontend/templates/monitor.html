@@ -3,179 +3,552 @@
 {% block title %}Monitoring - Twarga Cloud MVP{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 sm:px-0">
-    <div class="border-4 border-dashed border-gray-200 rounded-lg">
-        <!-- Monitoring Content -->
-        <div class="p-6">
-            <h1 class="text-2xl font-semibold text-gray-900">System Monitoring</h1>
+<div x-data="{
+    hostMetrics: {},
+    vmList: [],
+    alerts: [],
+    cpuChart: null,
+    memoryChart: null,
+    diskChart: null,
+    networkChart: null,
+    cpuHistory: [],
+    memoryHistory: [],
+    diskHistory: [],
+    networkHistory: [],
+    maxDataPoints: 60,
+    
+    async loadHostMetrics() {
+        try {
+            const response = await fetch('/api/metrics/host');
+            const data = await response.json();
+            this.hostMetrics = data;
+            this.updateCharts();
+        } catch (error) {
+            console.error('Error loading host metrics:', error);
+        }
+    },
+    
+    async loadVMList() {
+        try {
+            const response = await fetch('/api/vms');
+            const data = await response.json();
+            this.vmList = data;
             
-            <!-- Host Metrics -->
-            <div class="mt-6">
-                <h2 class="text-lg font-medium text-gray-900">Host System Metrics</h2>
-                <div class="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">💻</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            CPU Usage
-                                        </dt>
-                                        <dd class="text-lg font-medium text-gray-900" id="cpu-usage">
-                                            0%
-                                        </dd>
-                                    </dl>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            for (const vm of this.vmList) {
+                if (vm.status === 'running') {
+                    await this.loadVMMetrics(vm.id);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading VM list:', error);
+        }
+    },
+    
+    async loadVMMetrics(vmId) {
+        try {
+            const response = await fetch(`/api/metrics/vm/${vmId}`);
+            const data = await response.json();
+            const vm = this.vmList.find(v => v.id === vmId);
+            if (vm) {
+                vm.metrics = data;
+            }
+        } catch (error) {
+            console.error(`Error loading metrics for VM ${vmId}:`, error);
+        }
+    },
+    
+    async loadAlerts() {
+        try {
+            const response = await fetch('/api/metrics/alerts');
+            const data = await response.json();
+            this.alerts = data.alerts || [];
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+        }
+    },
+    
+    updateCharts() {
+        if (!this.hostMetrics.cpu_percent) return;
+        
+        const now = new Date().toLocaleTimeString();
+        
+        this.cpuHistory.push({
+            time: now,
+            value: this.hostMetrics.cpu_percent
+        });
+        if (this.cpuHistory.length > this.maxDataPoints) {
+            this.cpuHistory.shift();
+        }
+        
+        this.memoryHistory.push({
+            time: now,
+            value: this.hostMetrics.memory_percent
+        });
+        if (this.memoryHistory.length > this.maxDataPoints) {
+            this.memoryHistory.shift();
+        }
+        
+        this.diskHistory.push({
+            time: now,
+            value: this.hostMetrics.disk_percent
+        });
+        if (this.diskHistory.length > this.maxDataPoints) {
+            this.diskHistory.shift();
+        }
+        
+        this.networkHistory.push({
+            time: now,
+            sent: this.hostMetrics.net_send_speed_mbps || 0,
+            recv: this.hostMetrics.net_recv_speed_mbps || 0
+        });
+        if (this.networkHistory.length > this.maxDataPoints) {
+            this.networkHistory.shift();
+        }
+        
+        this.renderCharts();
+    },
+    
+    renderCharts() {
+        const cpuCtx = document.getElementById('cpuChart');
+        const memoryCtx = document.getElementById('memoryChart');
+        const diskCtx = document.getElementById('diskChart');
+        const networkCtx = document.getElementById('networkChart');
+        
+        if (!cpuCtx || !memoryCtx || !diskCtx || !networkCtx) return;
+        
+        if (this.cpuChart) this.cpuChart.destroy();
+        if (this.memoryChart) this.memoryChart.destroy();
+        if (this.diskChart) this.diskChart.destroy();
+        if (this.networkChart) this.networkChart.destroy();
+        
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            animation: {
+                duration: 0
+            }
+        };
+        
+        this.cpuChart = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: this.cpuHistory.map(d => d.time),
+                datasets: [{
+                    label: 'CPU %',
+                    data: this.cpuHistory.map(d => d.value),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: chartOptions
+        });
+        
+        this.memoryChart = new Chart(memoryCtx, {
+            type: 'line',
+            data: {
+                labels: this.memoryHistory.map(d => d.time),
+                datasets: [{
+                    label: 'Memory %',
+                    data: this.memoryHistory.map(d => d.value),
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: chartOptions
+        });
+        
+        this.diskChart = new Chart(diskCtx, {
+            type: 'line',
+            data: {
+                labels: this.diskHistory.map(d => d.time),
+                datasets: [{
+                    label: 'Disk %',
+                    data: this.diskHistory.map(d => d.value),
+                    borderColor: 'rgb(234, 179, 8)',
+                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: chartOptions
+        });
+        
+        const networkOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            animation: {
+                duration: 0
+            }
+        };
+        
+        this.networkChart = new Chart(networkCtx, {
+            type: 'line',
+            data: {
+                labels: this.networkHistory.map(d => d.time),
+                datasets: [
+                    {
+                        label: 'Send (MB/s)',
+                        data: this.networkHistory.map(d => d.sent),
+                        borderColor: 'rgb(168, 85, 247)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Receive (MB/s)',
+                        data: this.networkHistory.map(d => d.recv),
+                        borderColor: 'rgb(236, 72, 153)',
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: networkOptions
+        });
+    },
+    
+    getStatusColor(percent) {
+        if (percent >= 90) return 'text-red-600';
+        if (percent >= 75) return 'text-yellow-600';
+        return 'text-green-600';
+    },
+    
+    getStatusBg(percent) {
+        if (percent >= 90) return 'bg-red-100';
+        if (percent >= 75) return 'bg-yellow-100';
+        return 'bg-green-100';
+    },
+    
+    async refreshAll() {
+        await this.loadHostMetrics();
+        await this.loadVMList();
+        await this.loadAlerts();
+    },
+    
+    init() {
+        this.refreshAll();
+        setInterval(() => this.refreshAll(), 5000);
+    }
+}" class="px-4 py-6 sm:px-0">
+    
+    <!-- Page Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">System Monitoring</h1>
+        <p class="mt-2 text-sm text-gray-600">Real-time monitoring of host system and virtual machines</p>
+    </div>
 
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">🧠</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            Memory Usage
-                                        </dt>
-                                        <dd class="text-lg font-medium text-gray-900" id="memory-usage">
-                                            0%
-                                        </dd>
-                                    </dl>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">💾</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            Disk Usage
-                                        </dt>
-                                        <dd class="text-lg font-medium text-gray-900" id="disk-usage">
-                                            0%
-                                        </dd>
-                                    </dl>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">🌐</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            Network I/O
-                                        </dt>
-                                        <dd class="text-lg font-medium text-gray-900" id="network-io">
-                                            0 MB/s
-                                        </dd>
-                                    </dl>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Alerts Section -->
+    <div x-show="alerts.length > 0" class="mb-6">
+        <div class="bg-red-50 border-l-4 border-red-400 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
                 </div>
-            </div>
-
-            <!-- Resource Charts -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">Resource Usage Charts</h2>
-                <div class="mt-3 bg-white shadow rounded-lg">
-                    <div class="p-6">
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div>
-                                <h3 class="text-base font-medium text-gray-900 mb-4">CPU Usage Over Time</h3>
-                                <div class="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <p class="text-gray-500">Chart will be implemented with Chart.js</p>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-medium text-gray-900 mb-4">Memory Usage Over Time</h3>
-                                <div class="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <p class="text-gray-500">Chart will be implemented with Chart.js</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VM Metrics -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">Virtual Machine Metrics</h2>
-                <div class="mt-3 bg-white shadow overflow-hidden sm:rounded-md">
-                    <ul class="divide-y divide-gray-200">
-                        <li>
-                            <div class="px-4 py-4 flex items-center sm:px-6">
-                                <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <div class="flex text-sm">
-                                            <p class="font-medium text-gray-900">No VMs running</p>
-                                        </div>
-                                        <div class="mt-2 flex">
-                                            <div class="flex items-center text-sm text-gray-500">
-                                                <span class="text-gray-400">•</span>
-                                                <p class="ml-2">VM metrics will appear here when VMs are running</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Auto-refresh Info -->
-            <div class="mt-8 bg-blue-50 border-l-4 border-blue-400 p-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm text-blue-700">
-                            This page automatically refreshes every 5 seconds to show the latest metrics.
-                        </p>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Resource Alerts</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <ul class="list-disc list-inside space-y-1">
+                            <template x-for="alert in alerts" :key="alert.metric">
+                                <li x-text="`${alert.metric}: ${alert.value}% (threshold: ${alert.threshold}%)`"></li>
+                            </template>
+                        </ul>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Host System Metrics Cards -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <!-- CPU Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <span class="text-2xl">💻</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                CPU Usage
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold" :class="getStatusColor(hostMetrics.cpu_percent || 0)" x-text="(hostMetrics.cpu_percent || 0) + '%'">
+                                    0%
+                                </div>
+                            </dd>
+                            <dd class="text-xs text-gray-500 mt-1">
+                                <span x-text="hostMetrics.cpu_count || 0"></span> cores @ <span x-text="Math.round(hostMetrics.cpu_freq_mhz || 0)"></span> MHz
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                            <span class="text-2xl">🧠</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                Memory Usage
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold" :class="getStatusColor(hostMetrics.memory_percent || 0)" x-text="(hostMetrics.memory_percent || 0) + '%'">
+                                    0%
+                                </div>
+                            </dd>
+                            <dd class="text-xs text-gray-500 mt-1">
+                                <span x-text="(hostMetrics.memory_used_gb || 0).toFixed(1)"></span> / <span x-text="(hostMetrics.memory_total_gb || 0).toFixed(1)"></span> GB
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disk Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
+                            <span class="text-2xl">💾</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                Disk Usage
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold" :class="getStatusColor(hostMetrics.disk_percent || 0)" x-text="(hostMetrics.disk_percent || 0) + '%'">
+                                    0%
+                                </div>
+                            </dd>
+                            <dd class="text-xs text-gray-500 mt-1">
+                                <span x-text="(hostMetrics.disk_used_gb || 0).toFixed(1)"></span> / <span x-text="(hostMetrics.disk_total_gb || 0).toFixed(1)"></span> GB
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                            <span class="text-2xl">🌐</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                Network I/O
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-purple-600">
+                                    <span x-text="((hostMetrics.net_send_speed_mbps || 0) + (hostMetrics.net_recv_speed_mbps || 0)).toFixed(2)"></span>
+                                </div>
+                                <span class="ml-1 text-sm text-gray-500">MB/s</span>
+                            </dd>
+                            <dd class="text-xs text-gray-500 mt-1">
+                                ↑ <span x-text="(hostMetrics.net_send_speed_mbps || 0).toFixed(2)"></span> 
+                                ↓ <span x-text="(hostMetrics.net_recv_speed_mbps || 0).toFixed(2)"></span> MB/s
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resource Usage Charts -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-6">Resource Usage Over Time</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-sm font-medium text-gray-700 mb-3">CPU Usage</h3>
+                <div class="h-64">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-700 mb-3">Memory Usage</h3>
+                <div class="h-64">
+                    <canvas id="memoryChart"></canvas>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-700 mb-3">Disk Usage</h3>
+                <div class="h-64">
+                    <canvas id="diskChart"></canvas>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-700 mb-3">Network I/O</h3>
+                <div class="h-64">
+                    <canvas id="networkChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Virtual Machine Metrics -->
+    <div class="bg-white shadow rounded-lg overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Virtual Machine Metrics</h2>
+            <p class="mt-1 text-sm text-gray-500">Resource usage for all running VMs</p>
+        </div>
+        
+        <div x-show="vmList.length === 0" class="px-6 py-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                <span class="text-3xl">📦</span>
+            </div>
+            <h3 class="text-sm font-medium text-gray-900">No VMs Found</h3>
+            <p class="mt-1 text-sm text-gray-500">Create a VM from the dashboard to see metrics here</p>
+        </div>
+
+        <div x-show="vmList.length > 0" class="divide-y divide-gray-200">
+            <template x-for="vm in vmList" :key="vm.id">
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center"
+                                     :class="{
+                                         'bg-green-100': vm.status === 'running',
+                                         'bg-gray-100': vm.status === 'stopped',
+                                         'bg-yellow-100': vm.status === 'pending',
+                                         'bg-red-100': vm.status === 'error'
+                                     }">
+                                    <span class="text-xl">🖥️</span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-900" x-text="vm.name"></h3>
+                                <p class="text-xs text-gray-500">
+                                    <span x-text="vm.os_type"></span> • 
+                                    <span x-text="vm.cpu_cores"></span> CPU • 
+                                    <span x-text="vm.ram_mb"></span> MB RAM • 
+                                    <span x-text="vm.disk_gb"></span> GB Disk
+                                </p>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                  :class="{
+                                      'bg-green-100 text-green-800': vm.status === 'running',
+                                      'bg-gray-100 text-gray-800': vm.status === 'stopped',
+                                      'bg-yellow-100 text-yellow-800': vm.status === 'pending',
+                                      'bg-red-100 text-red-800': vm.status === 'error'
+                                  }"
+                                  x-text="vm.status"></span>
+                        </div>
+                    </div>
+
+                    <div x-show="vm.status === 'running' && vm.metrics" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-500 mb-1">CPU Usage</div>
+                            <div class="text-lg font-semibold" :class="getStatusColor(vm.metrics?.cpu_percent || 0)">
+                                <span x-text="(vm.metrics?.cpu_percent || 0) + '%'"></span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-500 mb-1">Memory Usage</div>
+                            <div class="text-lg font-semibold" :class="getStatusColor(vm.metrics?.memory_percent || 0)">
+                                <span x-text="(vm.metrics?.memory_percent || 0) + '%'"></span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span x-text="(vm.metrics?.memory_used_mb || 0).toFixed(0)"></span> MB
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-500 mb-1">Disk Usage</div>
+                            <div class="text-lg font-semibold" :class="getStatusColor(vm.metrics?.disk_percent || 0)">
+                                <span x-text="(vm.metrics?.disk_percent || 0) + '%'"></span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span x-text="(vm.metrics?.disk_used_gb || 0).toFixed(1)"></span> GB
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-500 mb-1">Uptime</div>
+                            <div class="text-lg font-semibold text-gray-900">
+                                <span x-text="Math.floor((vm.metrics?.uptime_seconds || 0) / 3600)"></span>h
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                IP: <span x-text="vm.metrics?.ip_address || 'N/A'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-show="vm.status !== 'running'" class="mt-4 text-sm text-gray-500">
+                        VM is not running. Metrics are only available for running VMs.
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    <strong>Auto-refresh enabled:</strong> This page automatically updates every 5 seconds with the latest metrics.
+                    System uptime: <span x-text="Math.floor((hostMetrics.uptime_seconds || 0) / 3600)"></span> hours
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
 
-<script>
-    // Auto-refresh functionality will be implemented with HTMX
-    // This is a placeholder for the JavaScript that will handle real-time updates
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Monitoring page loaded - auto-refresh will be implemented');
-    });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}

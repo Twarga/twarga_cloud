@@ -78,11 +78,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - [x] Create VM metrics API endpoints
 
 #### 3.3 Monitoring Dashboard
-- [ ] Create /monitor endpoint with live metrics
-- [ ] Implement HTMX auto-refresh every 5 seconds
-- [ ] Add system resource usage charts
-- [ ] Create per-VM resource usage display
-- [ ] Add alert thresholds for high resource usage
+- [x] Create /monitor endpoint with live metrics
+- [x] Implement HTMX auto-refresh every 5 seconds
+- [x] Add system resource usage charts
+- [x] Create per-VM resource usage display
+- [x] Add alert thresholds for high resource usage
 
 ### 🏗️ Phase 4: SOC Dashboard (Day 4)
 
@@ -171,12 +171,12 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 35% (36/103 tasks completed)
+### Overall Progress: 39% (41/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (12/12 tasks)
 - Phase 2 (VM Lifecycle): 100% (14/14 tasks)
-- Phase 3 (Monitoring): 100% (10/10 tasks)
+- Phase 3 (Monitoring): 100% (15/15 tasks)
 - Phase 4 (SOC Dashboard): 0% (0/9 tasks)
 - Phase 5 (Admin Dashboard): 0% (0/9 tasks)
 - Phase 6 (Web Terminal): 0% (0/6 tasks)
@@ -184,11 +184,32 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 3.2 - VM Monitoring (100%)
+**✅ Completed:** Phase 3 - Monitoring System (100%)
 
-**Next:** Phase 3.3 - Monitoring Dashboard
+**Next:** Phase 4.1 - Event Logging System
 
 ## 📝 Recent Changes
+
+**2025-10-25 17:00:** ✅ Completed Phase 3.3 - Monitoring Dashboard
+- Created comprehensive monitoring dashboard UI with Alpine.js state management
+- Implemented auto-refresh functionality that updates every 5 seconds using Alpine.js intervals
+- Added real-time host system metrics display (CPU, Memory, Disk, Network)
+- Integrated Chart.js for live resource usage charts with 60-point history
+- Created 4 real-time charts: CPU Usage, Memory Usage, Disk Usage, and Network I/O
+- Implemented per-VM resource usage display with status indicators
+- Added VM metrics showing CPU, memory, disk usage, uptime, and IP address
+- Created alert system with color-coded warnings (red for >=90%, yellow for >=75%, green otherwise)
+- Implemented resource threshold alerts that appear at the top of the page
+- Added dynamic VM list that fetches metrics only for running VMs
+- Created responsive grid layout for metrics cards and charts
+- Integrated with existing API endpoints: /api/metrics/host, /api/metrics/vm/{id}, /api/metrics/alerts, /api/vms
+- Used Alpine.js for state management and automatic UI updates
+- Added Chart.js for smooth animated line charts with no animation lag
+- Implemented status color coding for resource usage warnings
+- Created empty state for when no VMs are running
+- Added system uptime display in the info section
+- **Phase 3.3 is now 100% complete!**
+- **Phase 3 (Monitoring System) is now 100% complete with all 15 tasks done!**
 
 **2025-10-25 16:00:** ✅ Completed Phase 3.2 - VM Monitoring
 - Enhanced SystemMonitor class with VM-specific monitoring capabilities
@@ -319,4 +340,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-25 16:00*
+*Last updated: 2025-10-25 17:00*
