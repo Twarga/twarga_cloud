@@ -3,14 +3,14 @@ Twarga Cloud MVP - FastAPI Main Application
 Entry point for the local cloud simulation lab
 """
 
-from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Query, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uvicorn
 import logging
 from datetime import datetime, timedelta
@@ -733,6 +733,292 @@ async def admin_vm_action(
     db.commit()
     
     return {"success": True, "message": message, "action": action.action}
+
+# ==================== ADMIN USER MANAGEMENT ENDPOINTS ====================
+
+@app.get("/api/admin/users", response_model=List[UserResponse])
+async def admin_list_all_users(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: List all users"""
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return users
+
+@app.get("/api/admin/users/{user_id}", response_model=UserResponse)
+async def admin_get_user(
+    user_id: int,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Get specific user details"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user
+
+@app.patch("/api/admin/users/{user_id}", response_model=UserResponse)
+async def admin_update_user(
+    user_id: int,
+    is_active: Optional[bool] = Body(None),
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Update user status (activate/deactivate)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Prevent admin from deactivating themselves
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify your own account status"
+        )
+    
+    if is_active is not None:
+        user.is_active = is_active
+        
+        # Log the action
+        event = Event(
+            type="admin",
+            severity="warning",
+            message=f"Admin '{current_user.username}' {'activated' if is_active else 'deactivated'} user '{user.username}'",
+            user_id=current_user.id,
+            details={"target_user_id": user.id, "target_username": user.username, "is_active": is_active}
+        )
+        db.add(event)
+    
+    db.commit()
+    db.refresh(user)
+    return user
+
+@app.post("/api/admin/users/{user_id}/credits")
+async def admin_adjust_credits(
+    user_id: int,
+    amount: int = Body(..., ge=-10000, le=10000),
+    reason: Optional[str] = Body(None),
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Adjust user credits"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    old_credits = user.credits
+    user.credits += amount
+    
+    # Ensure credits don't go negative
+    if user.credits < 0:
+        user.credits = 0
+    
+    # Log the action
+    event = Event(
+        type="admin",
+        severity="info",
+        message=f"Admin '{current_user.username}' adjusted credits for user '{user.username}': {old_credits} -> {user.credits} ({amount:+d})",
+        user_id=current_user.id,
+        details={
+            "target_user_id": user.id,
+            "target_username": user.username,
+            "old_credits": old_credits,
+            "new_credits": user.credits,
+            "adjustment": amount,
+            "reason": reason
+        }
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "success": True,
+        "user_id": user.id,
+        "username": user.username,
+        "old_credits": old_credits,
+        "new_credits": user.credits,
+        "adjustment": amount
+    }
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: int,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Delete a user and their VMs"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Prevent admin from deleting themselves
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account"
+        )
+    
+    username = user.username
+    
+    # Delete all user's VMs first
+    user_vms = db.query(VM).filter(VM.owner_id == user_id).all()
+    for vm in user_vms:
+        vm_manager.destroy_vm(db, vm, user)
+    
+    # Log the action
+    event = Event(
+        type="admin",
+        severity="critical",
+        message=f"Admin '{current_user.username}' deleted user '{username}' and {len(user_vms)} VMs",
+        user_id=current_user.id,
+        details={"deleted_user_id": user_id, "deleted_username": username, "deleted_vms": len(user_vms)}
+    )
+    db.add(event)
+    
+    # Delete the user
+    db.delete(user)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"User '{username}' and {len(user_vms)} VMs deleted successfully"
+    }
+
+@app.get("/api/admin/statistics")
+async def admin_get_statistics(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Get overall system statistics"""
+    
+    # User statistics
+    total_users = db.query(User).count()
+    active_users = db.query(User).filter(User.is_active == True).count()
+    admin_users = db.query(User).filter(User.is_admin == True).count()
+    
+    # VM statistics
+    total_vms = db.query(VM).count()
+    running_vms = db.query(VM).filter(VM.status == "running").count()
+    stopped_vms = db.query(VM).filter(VM.status == "stopped").count()
+    pending_vms = db.query(VM).filter(VM.status == "pending").count()
+    error_vms = db.query(VM).filter(VM.status == "error").count()
+    
+    # Resource allocation statistics
+    total_ram_allocated = db.query(VM).filter(VM.status.in_(["running", "stopped"])).with_entities(
+        db.func.sum(VM.ram_mb)
+    ).scalar() or 0
+    total_disk_allocated = db.query(VM).filter(VM.status.in_(["running", "stopped"])).with_entities(
+        db.func.sum(VM.disk_gb)
+    ).scalar() or 0
+    total_cpu_allocated = db.query(VM).filter(VM.status.in_(["running", "stopped"])).with_entities(
+        db.func.sum(VM.cpu_cores)
+    ).scalar() or 0
+    
+    # Event statistics (last 24 hours)
+    from datetime import datetime, timedelta
+    last_24h = datetime.utcnow() - timedelta(hours=24)
+    events_24h = db.query(Event).filter(Event.created_at >= last_24h).count()
+    critical_events_24h = db.query(Event).filter(
+        Event.created_at >= last_24h,
+        Event.severity == "critical"
+    ).count()
+    warning_events_24h = db.query(Event).filter(
+        Event.created_at >= last_24h,
+        Event.severity == "warning"
+    ).count()
+    
+    # Host system metrics
+    host_metrics = system_monitor.get_host_metrics()
+    
+    return {
+        "users": {
+            "total": total_users,
+            "active": active_users,
+            "admins": admin_users,
+            "inactive": total_users - active_users
+        },
+        "vms": {
+            "total": total_vms,
+            "running": running_vms,
+            "stopped": stopped_vms,
+            "pending": pending_vms,
+            "error": error_vms
+        },
+        "resources": {
+            "ram_mb": total_ram_allocated,
+            "ram_gb": round(total_ram_allocated / 1024, 2),
+            "disk_gb": total_disk_allocated,
+            "cpu_cores": total_cpu_allocated
+        },
+        "events": {
+            "last_24h": events_24h,
+            "critical": critical_events_24h,
+            "warnings": warning_events_24h,
+            "info": events_24h - critical_events_24h - warning_events_24h
+        },
+        "host": host_metrics,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.post("/api/admin/emergency-stop-all")
+async def admin_emergency_stop_all_vms(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Emergency stop all running VMs"""
+    running_vms = db.query(VM).filter(VM.status == "running").all()
+    
+    stopped_count = 0
+    failed_count = 0
+    results = []
+    
+    for vm in running_vms:
+        owner = db.query(User).filter(User.id == vm.owner_id).first()
+        if owner:
+            success, message = vm_manager.stop_vm(db, vm, owner)
+            if success:
+                stopped_count += 1
+            else:
+                failed_count += 1
+            results.append({
+                "vm_id": vm.id,
+                "vm_name": vm.name,
+                "owner": owner.username,
+                "success": success,
+                "message": message
+            })
+    
+    # Log the emergency action
+    event = Event(
+        type="admin",
+        severity="critical",
+        message=f"Admin '{current_user.username}' executed emergency stop on all VMs: {stopped_count} stopped, {failed_count} failed",
+        user_id=current_user.id,
+        details={"stopped": stopped_count, "failed": failed_count, "results": results}
+    )
+    db.add(event)
+    db.commit()
+    
+    return {
+        "success": True,
+        "stopped": stopped_count,
+        "failed": failed_count,
+        "total": len(running_vms),
+        "results": results
+    }
 
 # ==================== EVENT ENDPOINTS ====================
 
