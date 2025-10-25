@@ -8,17 +8,22 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
 import uvicorn
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from .database import init_db, check_db_connection, get_db
-from .auth import get_current_active_user, get_current_admin_user
+from .auth import (
+    get_current_active_user, get_current_admin_user, 
+    get_password_hash, authenticate_user, create_access_token,
+    get_user_by_username, ACCESS_TOKEN_EXPIRE_MINUTES
+)
 from .models import User, VM, Event
 from .schemas import (
     VMCreate, VMResponse, VMUpdate, VMAction, VMQuotaCheck,
-    EventResponse, UserResponse
+    EventResponse, UserResponse, UserCreate, UserLogin, Token
 )
 from .vm_manager import vm_manager
 from .monitor import system_monitor
@@ -99,6 +104,11 @@ async def login_page(request: Request):
     """Login page"""
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """Registration page"""
+    return templates.TemplateResponse("register.html", {"request": request})
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
     """Dashboard page"""
@@ -154,6 +164,136 @@ async def internal_error_handler(request: Request, exc):
     """Handle 500 errors"""
     logger.error(f"Internal server error: {exc}")
     return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
+
+# ==================== AUTHENTICATION API ENDPOINTS ====================
+
+@app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_data: UserCreate,
+    db: Session = Depends(get_db)
+):
+    """Register a new user"""
+    # Check if username already exists
+    existing_user = get_user_by_username(db, user_data.username)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+    
+    # Check if email already exists
+    existing_email = db.query(User).filter(User.email == user_data.email).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    db_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_password,
+        is_active=True,
+        is_admin=False,
+        credits=100  # Starting credits
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    # Log registration event
+    event = Event(
+        type="auth",
+        severity="info",
+        message=f"New user registered: {db_user.username}",
+        user_id=db_user.id,
+        details={"email": db_user.email}
+    )
+    db.add(event)
+    db.commit()
+    
+    logger.info(f"New user registered: {db_user.username} ({db_user.email})")
+    return db_user
+
+@app.post("/api/auth/login", response_model=Token)
+async def login_user(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """Login user and return JWT token"""
+    user = authenticate_user(db, form_data.username, form_data.password)
+    
+    if not user:
+        # Log failed login attempt
+        event = Event(
+            type="auth",
+            severity="warning",
+            message=f"Failed login attempt for username: {form_data.username}",
+            details={"username": form_data.username}
+        )
+        db.add(event)
+        db.commit()
+        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user account"
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    # Log successful login
+    event = Event(
+        type="auth",
+        severity="info",
+        message=f"User logged in: {user.username}",
+        user_id=user.id,
+        details={"username": user.username}
+    )
+    db.add(event)
+    db.commit()
+    
+    logger.info(f"User logged in: {user.username}")
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get current user information"""
+    return current_user
+
+@app.post("/api/auth/logout")
+async def logout_user(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Logout user (client should delete token)"""
+    # Log logout event
+    event = Event(
+        type="auth",
+        severity="info",
+        message=f"User logged out: {current_user.username}",
+        user_id=current_user.id
+    )
+    db.add(event)
+    db.commit()
+    
+    logger.info(f"User logged out: {current_user.username}")
+    return {"message": "Successfully logged out"}
 
 # ==================== MONITORING API ENDPOINTS ====================
 
