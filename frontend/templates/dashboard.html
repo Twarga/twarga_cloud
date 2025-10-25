@@ -3,130 +3,576 @@
 {% block title %}Dashboard - Twarga Cloud MVP{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 sm:px-0">
-    <div class="border-4 border-dashed border-gray-200 rounded-lg h-96">
-        <!-- Dashboard Content -->
-        <div class="p-6">
-            <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
-            
-            <!-- Credits Overview -->
-            <div class="mt-6 bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center">
-                                <span class="text-white font-medium">💰</span>
-                            </div>
+<div x-data="dashboardData()" x-init="init()">
+    <!-- Page Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p class="mt-2 text-sm text-gray-600">Manage your virtual machines and monitor your resources</p>
+    </div>
+
+    <!-- Credits and Stats Overview -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+        <!-- Available Credits -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-indigo-500 rounded-md flex items-center justify-center">
+                            <span class="text-2xl">💰</span>
                         </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">
-                                    Available Credits
-                                </dt>
-                                <dd class="text-lg font-medium text-gray-900">
-                                    100 credits
-                                </dd>
-                            </dl>
-                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Available Credits</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" x-text="userCredits"></dd>
+                        </dl>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Quick Actions -->
+        <!-- Active VMs -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-green-500 rounded-md flex items-center justify-center">
+                            <span class="text-2xl">🖥️</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active VMs</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" x-text="activeVMCount"></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total VMs -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-blue-500 rounded-md flex items-center justify-center">
+                            <span class="text-2xl">📊</span>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total VMs</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" x-text="totalVMCount"></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Launch VM Button -->
+    <div class="mb-6">
+        <button @click="showLaunchForm = true" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="mr-2 -ml-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Launch New VM
+        </button>
+    </div>
+
+    <!-- VM Launch Form Modal -->
+    <div x-show="showLaunchForm" class="fixed z-10 inset-0 overflow-y-auto" x-cloak style="display: none;">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showLaunchForm" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showLaunchForm = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+            <div x-show="showLaunchForm" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Launch New Virtual Machine</h3>
+                        <button @click="showLaunchForm = false" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="createVM">
+                        <!-- VM Name -->
+                        <div class="mb-4">
+                            <label for="vm-name" class="block text-sm font-medium text-gray-700">VM Name</label>
+                            <input type="text" id="vm-name" x-model="newVM.name" required pattern="[a-zA-Z0-9_-]+" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="my-ubuntu-vm">
+                            <p class="mt-1 text-xs text-gray-500">Only alphanumeric characters, hyphens, and underscores</p>
+                        </div>
+
+                        <!-- OS Type -->
+                        <div class="mb-4">
+                            <label for="os-type" class="block text-sm font-medium text-gray-700">Operating System</label>
+                            <select id="os-type" x-model="newVM.os_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="ubuntu22">Ubuntu 22.04 LTS</option>
+                                <option value="ubuntu20">Ubuntu 20.04 LTS</option>
+                                <option value="ubuntu">Ubuntu Latest</option>
+                                <option value="debian11">Debian 11</option>
+                                <option value="debian10">Debian 10</option>
+                                <option value="debian">Debian Latest</option>
+                                <option value="centos8">CentOS 8</option>
+                                <option value="centos7">CentOS 7</option>
+                                <option value="centos">CentOS Latest</option>
+                            </select>
+                        </div>
+
+                        <!-- RAM -->
+                        <div class="mb-4">
+                            <label for="ram" class="block text-sm font-medium text-gray-700">RAM (MB)</label>
+                            <select id="ram" x-model.number="newVM.ram_mb" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="512">512 MB</option>
+                                <option value="1024">1 GB</option>
+                                <option value="2048">2 GB</option>
+                                <option value="4096">4 GB</option>
+                                <option value="8192">8 GB</option>
+                            </select>
+                        </div>
+
+                        <!-- CPU Cores -->
+                        <div class="mb-4">
+                            <label for="cpu" class="block text-sm font-medium text-gray-700">CPU Cores</label>
+                            <select id="cpu" x-model.number="newVM.cpu_cores" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="1">1 Core</option>
+                                <option value="2">2 Cores</option>
+                                <option value="4">4 Cores</option>
+                            </select>
+                        </div>
+
+                        <!-- Disk -->
+                        <div class="mb-4">
+                            <label for="disk" class="block text-sm font-medium text-gray-700">Disk (GB)</label>
+                            <select id="disk" x-model.number="newVM.disk_gb" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="10">10 GB</option>
+                                <option value="20">20 GB</option>
+                                <option value="50">50 GB</option>
+                                <option value="100">100 GB</option>
+                            </select>
+                        </div>
+
+                        <!-- Estimated Cost -->
+                        <div class="mb-4 p-3 bg-blue-50 rounded-md">
+                            <p class="text-sm text-gray-700">
+                                <span class="font-medium">Estimated Cost:</span> 
+                                <span class="text-lg font-bold text-indigo-600" x-text="estimatedCost + ' credits'"></span>
+                            </p>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div x-show="errorMessage" class="mb-4 p-3 bg-red-50 rounded-md">
+                            <p class="text-sm text-red-800" x-text="errorMessage"></p>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                            <button type="submit" :disabled="isCreating" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span x-show="!isCreating">Launch VM</span>
+                                <span x-show="isCreating">Creating...</span>
+                            </button>
+                            <button type="button" @click="showLaunchForm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VM List -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h2 class="text-lg leading-6 font-medium text-gray-900">Your Virtual Machines</h2>
+            <p class="mt-1 text-sm text-gray-500">Manage and monitor your deployed VMs</p>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="isLoading" class="px-4 py-8 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">Loading VMs...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="!isLoading && vms.length === 0" class="px-4 py-8 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No virtual machines</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by launching a new VM.</p>
             <div class="mt-6">
-                <h2 class="text-lg font-medium text-gray-900">Quick Actions</h2>
-                <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
+                <button @click="showLaunchForm = true" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="mr-2 -ml-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Launch New VM
+                </button>
+            </div>
+        </div>
+
+        <!-- VM List -->
+        <ul x-show="!isLoading && vms.length > 0" class="divide-y divide-gray-200">
+            <template x-for="vm in vms" :key="vm.id">
+                <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
                             <div class="flex items-center">
+                                <!-- Status Indicator -->
                                 <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">🚀</span>
+                                    <span :class="{
+                                        'bg-green-100 text-green-800': vm.status === 'running',
+                                        'bg-red-100 text-red-800': vm.status === 'stopped',
+                                        'bg-yellow-100 text-yellow-800': vm.status === 'pending',
+                                        'bg-gray-100 text-gray-800': vm.status === 'error'
+                                    }" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                        <span x-show="vm.status === 'running'" class="mr-1">●</span>
+                                        <span x-text="vm.status"></span>
+                                    </span>
+                                </div>
+                                
+                                <!-- VM Info -->
+                                <div class="ml-4">
+                                    <h3 class="text-sm font-medium text-gray-900" x-text="vm.name"></h3>
+                                    <div class="mt-1 flex items-center text-sm text-gray-500 space-x-4">
+                                        <span x-text="vm.os_type"></span>
+                                        <span>•</span>
+                                        <span x-text="vm.ram_mb + ' MB'"></span>
+                                        <span>•</span>
+                                        <span x-text="vm.cpu_cores + ' CPU'"></span>
+                                        <span>•</span>
+                                        <span x-text="vm.disk_gb + ' GB'"></span>
+                                    </div>
+                                    <div x-show="vm.ip_address" class="mt-1 text-xs text-gray-500">
+                                        <span class="font-medium">IP:</span> <span x-text="vm.ip_address"></span>
                                     </div>
                                 </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <h3 class="text-lg font-medium text-gray-900">Launch VM</h3>
-                                    <p class="mt-1 text-sm text-gray-500">
-                                        Create a new virtual machine
-                                    </p>
-                                    <button class="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                        Launch New VM
-                                    </button>
-                                </div>
                             </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="ml-5 flex-shrink-0 flex items-center space-x-2">
+                            <!-- Details Button -->
+                            <button @click="viewVMDetails(vm)" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Details
+                            </button>
+
+                            <!-- Start Button -->
+                            <button x-show="vm.status === 'stopped'" @click="performVMAction(vm.id, 'start')" class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                Start
+                            </button>
+
+                            <!-- Stop Button -->
+                            <button x-show="vm.status === 'running'" @click="performVMAction(vm.id, 'stop')" class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                Stop
+                            </button>
+
+                            <!-- Restart Button -->
+                            <button x-show="vm.status === 'running'" @click="performVMAction(vm.id, 'restart')" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Restart
+                            </button>
+
+                            <!-- Destroy Button -->
+                            <button @click="confirmDestroy(vm)" class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Destroy
+                            </button>
                         </div>
                     </div>
+                </li>
+            </template>
+        </ul>
+    </div>
 
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">📊</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <h3 class="text-lg font-medium text-gray-900">Monitoring</h3>
-                                    <p class="mt-1 text-sm text-gray-500">
-                                        View system metrics
-                                    </p>
-                                    <a href="/monitor" class="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        View Metrics
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+    <!-- VM Details Modal -->
+    <div x-show="showDetailsModal" class="fixed z-10 inset-0 overflow-y-auto" x-cloak style="display: none;">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showDetailsModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showDetailsModal = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+            <div x-show="showDetailsModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
+                <div x-show="selectedVM">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" x-text="'VM Details: ' + (selectedVM ? selectedVM.name : '')"></h3>
+                        <button @click="showDetailsModal = false" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     </div>
 
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="p-5">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                                        <span class="text-white font-medium">🛡️</span>
-                                    </div>
-                                </div>
-                                <div class="ml-5 w-0 flex-1">
-                                    <h3 class="text-lg font-medium text-gray-900">SOC Feed</h3>
-                                    <p class="mt-1 text-sm text-gray-500">
-                                        Security events & logs
-                                    </p>
-                                    <a href="/soc" class="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
-                                        View Events
-                                    </a>
-                                </div>
+                    <div class="border-t border-gray-200">
+                        <dl>
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">VM ID</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="selectedVM ? selectedVM.id : ''"></dd>
                             </div>
-                        </div>
+                            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Name</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="selectedVM ? selectedVM.name : ''"></dd>
+                            </div>
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Status</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                    <span x-show="selectedVM" :class="{
+                                        'bg-green-100 text-green-800': selectedVM && selectedVM.status === 'running',
+                                        'bg-red-100 text-red-800': selectedVM && selectedVM.status === 'stopped',
+                                        'bg-yellow-100 text-yellow-800': selectedVM && selectedVM.status === 'pending',
+                                        'bg-gray-100 text-gray-800': selectedVM && selectedVM.status === 'error'
+                                    }" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" x-text="selectedVM ? selectedVM.status : ''">
+                                    </span>
+                                </dd>
+                            </div>
+                            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Operating System</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="selectedVM ? selectedVM.os_type : ''"></dd>
+                            </div>
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Resources</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                    <span x-text="(selectedVM ? selectedVM.ram_mb : '') + ' MB RAM'"></span> • 
+                                    <span x-text="(selectedVM ? selectedVM.cpu_cores : '') + ' CPU Cores'"></span> • 
+                                    <span x-text="(selectedVM ? selectedVM.disk_gb : '') + ' GB Disk'"></span>
+                                </dd>
+                            </div>
+                            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">IP Address</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="selectedVM && selectedVM.ip_address ? selectedVM.ip_address : 'Not assigned'"></dd>
+                            </div>
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">SSH Port</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="selectedVM && selectedVM.ssh_port ? selectedVM.ssh_port : 'N/A'"></dd>
+                            </div>
+                            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Uptime</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="formatUptime(selectedVM ? selectedVM.uptime_seconds : 0)"></dd>
+                            </div>
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">Created</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="formatDate(selectedVM ? selectedVM.created_at : '')"></dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="mt-5 sm:mt-6">
+                        <button @click="showDetailsModal = false" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                            Close
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- VM List -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">Your Virtual Machines</h2>
-                <div class="mt-3 bg-white shadow overflow-hidden sm:rounded-md">
-                    <ul class="divide-y divide-gray-200">
-                        <li>
-                            <div class="px-4 py-4 flex items-center sm:px-6">
-                                <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <div class="flex text-sm">
-                                            <p class="font-medium text-indigo-600 truncate">No VMs deployed yet</p>
-                                        </div>
-                                        <div class="mt-2 flex">
-                                            <div class="flex items-center text-sm text-gray-500">
-                                                <span class="text-gray-400">•</span>
-                                                <p class="ml-2">Click "Launch New VM" to get started</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
+    <!-- Destroy Confirmation Modal -->
+    <div x-show="showDestroyConfirm" class="fixed z-10 inset-0 overflow-y-auto" x-cloak style="display: none;">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showDestroyConfirm" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showDestroyConfirm = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+            <div x-show="showDestroyConfirm" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Destroy Virtual Machine</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">
+                                Are you sure you want to destroy <strong x-text="vmToDestroy ? vmToDestroy.name : ''"></strong>? This action cannot be undone. All data on this VM will be permanently lost.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                    <button @click="destroyVM()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Destroy
+                    </button>
+                    <button @click="showDestroyConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function dashboardData() {
+    return {
+        vms: [],
+        isLoading: false,
+        showLaunchForm: false,
+        showDetailsModal: false,
+        showDestroyConfirm: false,
+        selectedVM: null,
+        vmToDestroy: null,
+        isCreating: false,
+        errorMessage: '',
+        userCredits: 100,
+        newVM: {
+            name: '',
+            os_type: 'ubuntu22',
+            ram_mb: 1024,
+            cpu_cores: 1,
+            disk_gb: 20
+        },
+
+        get activeVMCount() {
+            return this.vms.filter(vm => vm.status === 'running').length;
+        },
+
+        get totalVMCount() {
+            return this.vms.length;
+        },
+
+        get estimatedCost() {
+            const ramCost = Math.floor(this.newVM.ram_mb / 512);
+            const cpuCost = this.newVM.cpu_cores * 5;
+            const diskCost = Math.floor(this.newVM.disk_gb / 10);
+            return ramCost + cpuCost + diskCost;
+        },
+
+        init() {
+            this.loadVMs();
+            setInterval(() => {
+                this.loadVMs();
+            }, 10000);
+        },
+
+        async loadVMs() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/api/vms', {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    this.vms = await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to load VMs:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async createVM() {
+            this.isCreating = true;
+            this.errorMessage = '';
+            try {
+                const response = await fetch('/api/vms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify(this.newVM)
+                });
+                
+                if (response.ok) {
+                    this.showLaunchForm = false;
+                    this.newVM = {
+                        name: '',
+                        os_type: 'ubuntu22',
+                        ram_mb: 1024,
+                        cpu_cores: 1,
+                        disk_gb: 20
+                    };
+                    await this.loadVMs();
+                } else {
+                    const error = await response.json();
+                    this.errorMessage = error.detail || 'Failed to create VM';
+                }
+            } catch (error) {
+                this.errorMessage = 'Failed to create VM: ' + error.message;
+            } finally {
+                this.isCreating = false;
+            }
+        },
+
+        async performVMAction(vmId, action) {
+            try {
+                const response = await fetch(`/api/vms/${vmId}/action`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ action })
+                });
+                
+                if (response.ok) {
+                    await this.loadVMs();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Action failed');
+                }
+            } catch (error) {
+                alert('Failed to perform action: ' + error.message);
+            }
+        },
+
+        confirmDestroy(vm) {
+            this.vmToDestroy = vm;
+            this.showDestroyConfirm = true;
+        },
+
+        async destroyVM() {
+            if (!this.vmToDestroy) return;
+            
+            try {
+                const response = await fetch(`/api/vms/${this.vmToDestroy.id}/action`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ action: 'destroy' })
+                });
+                
+                if (response.ok) {
+                    this.showDestroyConfirm = false;
+                    this.vmToDestroy = null;
+                    await this.loadVMs();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to destroy VM');
+                }
+            } catch (error) {
+                alert('Failed to destroy VM: ' + error.message);
+            }
+        },
+
+        viewVMDetails(vm) {
+            this.selectedVM = vm;
+            this.showDetailsModal = true;
+        },
+
+        formatUptime(seconds) {
+            if (!seconds || seconds === 0) return 'Not running';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        },
+
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+    }
+}
+</script>
+
+<style>
+[x-cloak] { display: none !important; }
+</style>
 {% endblock %}
