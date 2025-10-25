@@ -3,174 +3,539 @@
 {% block title %}Admin Panel - Twarga Cloud MVP{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 sm:px-0">
-    <div class="border-4 border-dashed border-gray-200 rounded-lg">
-        <!-- Admin Panel Content -->
-        <div class="p-6">
-            <h1 class="text-2xl font-semibold text-gray-900">Admin Panel</h1>
+<div x-data="adminPanel()" x-init="init()" class="px-4 py-6 sm:px-0">
+    <!-- Admin Panel Content -->
+    <div class="space-y-6">
+        <h1 class="text-3xl font-bold text-gray-900">Admin Panel</h1>
+        
+        <!-- System Overview Statistics -->
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <!-- Total Users -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-blue-500 rounded-md flex items-center justify-center text-2xl">
+                                👥
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    Total Users
+                                </dt>
+                                <dd class="text-2xl font-bold text-gray-900" x-text="stats.users?.total || 0"></dd>
+                                <dd class="text-xs text-gray-500" x-text="`${stats.users?.active || 0} active`"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active VMs -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-green-500 rounded-md flex items-center justify-center text-2xl">
+                                🖥️
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    Total VMs
+                                </dt>
+                                <dd class="text-2xl font-bold text-gray-900" x-text="stats.vms?.total || 0"></dd>
+                                <dd class="text-xs text-gray-500" x-text="`${stats.vms?.running || 0} running`"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CPU Usage -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-yellow-500 rounded-md flex items-center justify-center text-2xl">
+                                ⚡
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    CPU Usage
+                                </dt>
+                                <dd class="text-2xl font-bold text-gray-900" x-text="`${stats.host?.cpu_percent?.toFixed(1) || 0}%`"></dd>
+                                <dd class="text-xs text-gray-500" x-text="`${stats.host?.cpu_count || 0} cores`"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Events -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-red-500 rounded-md flex items-center justify-center text-2xl">
+                                🚨
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    Events (24h)
+                                </dt>
+                                <dd class="text-2xl font-bold text-gray-900" x-text="stats.events?.last_24h || 0"></dd>
+                                <dd class="text-xs text-red-600" x-text="`${stats.events?.critical || 0} critical`"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Actions -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <button @click="loadData()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="mr-2">🔄</span>
+                    Refresh System Status
+                </button>
+                <button @click="emergencyStopAll()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                    <span class="mr-2">🛑</span>
+                    Emergency Stop All VMs
+                </button>
+                <button @click="cleanupMetrics()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                    <span class="mr-2">🗑️</span>
+                    Cleanup Old Metrics
+                </button>
+            </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">User Management</h2>
             
-            <!-- System Overview -->
-            <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                                    <span class="text-white font-medium">👥</span>
-                                </div>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">
-                                        Total Users
-                                    </dt>
-                                    <dd class="text-lg font-medium text-gray-900">
-                                        0
-                                    </dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
+            <template x-if="loading">
+                <div class="text-center py-8 text-gray-500">
+                    Loading users...
                 </div>
+            </template>
+            
+            <template x-if="!loading && users.length === 0">
+                <div class="text-center py-8 text-gray-500">
+                    No users registered yet
+                </div>
+            </template>
+            
+            <template x-if="!loading && users.length > 0">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="user in users" :key="user.id">
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900" x-text="user.username"></div>
+                                        <div class="text-xs text-gray-500" x-text="`ID: ${user.id}`"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="user.email"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" x-text="user.is_active ? 'Active' : 'Inactive'">
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.credits"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="user.is_admin ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" x-text="user.is_admin ? 'Admin' : 'User'">
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                        <button @click="openCreditModal(user)" class="text-indigo-600 hover:text-indigo-900">Credits</button>
+                                        <button @click="toggleUserStatus(user)" class="text-yellow-600 hover:text-yellow-900" x-text="user.is_active ? 'Deactivate' : 'Activate'"></button>
+                                        <button @click="deleteUser(user)" class="text-red-600 hover:text-red-900">Delete</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+        </div>
 
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                                    <span class="text-white font-medium">🖥️</span>
-                                </div>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">
-                                        Active VMs
-                                    </dt>
-                                    <dd class="text-lg font-medium text-gray-900">
-                                        0
-                                    </dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
+        <!-- VM Management -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">VM Management</h2>
+            
+            <template x-if="loading">
+                <div class="text-center py-8 text-gray-500">
+                    Loading VMs...
                 </div>
+            </template>
+            
+            <template x-if="!loading && vms.length === 0">
+                <div class="text-center py-8 text-gray-500">
+                    No VMs deployed yet
+                </div>
+            </template>
+            
+            <template x-if="!loading && vms.length > 0">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VM Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resources</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="vm in vms" :key="vm.id">
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900" x-text="vm.name"></div>
+                                        <div class="text-xs text-gray-500" x-text="vm.os_type"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="vm.owner?.username || 'Unknown'"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="{
+                                            'bg-green-100 text-green-800': vm.status === 'running',
+                                            'bg-red-100 text-red-800': vm.status === 'stopped',
+                                            'bg-yellow-100 text-yellow-800': vm.status === 'pending',
+                                            'bg-gray-100 text-gray-800': vm.status === 'error'
+                                        }" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" x-text="vm.status">
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <div x-text="`${vm.ram_mb}MB RAM`"></div>
+                                        <div x-text="`${vm.cpu_cores} CPU, ${vm.disk_gb}GB`"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="vm.ip_address || 'N/A'"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                        <template x-if="vm.status === 'stopped'">
+                                            <button @click="vmAction(vm.id, 'start')" class="text-green-600 hover:text-green-900">Start</button>
+                                        </template>
+                                        <template x-if="vm.status === 'running'">
+                                            <button @click="vmAction(vm.id, 'stop')" class="text-yellow-600 hover:text-yellow-900">Stop</button>
+                                        </template>
+                                        <button @click="vmAction(vm.id, 'destroy')" class="text-red-600 hover:text-red-900">Destroy</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+        </div>
+    </div>
 
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                                    <span class="text-white font-medium">⚡</span>
-                                </div>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">
-                                        CPU Usage
-                                    </dt>
-                                    <dd class="text-lg font-medium text-gray-900">
-                                        0%
-                                    </dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
-                                    <span class="text-white font-medium">🚨</span>
-                                </div>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">
-                                        Security Events
-                                    </dt>
-                                    <dd class="text-lg font-medium text-gray-900">
-                                        0
-                                    </dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Credit Adjustment Modal -->
+    <div x-show="creditModal.show" class="fixed z-10 inset-0 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" @click="creditModal.show = false">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
-            <!-- User Management -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">User Management</h2>
-                <div class="mt-3 bg-white shadow overflow-hidden sm:rounded-md">
-                    <ul class="divide-y divide-gray-200">
-                        <li>
-                            <div class="px-4 py-4 flex items-center sm:px-6">
-                                <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <div class="flex text-sm">
-                                            <p class="font-medium text-gray-900">No users registered yet</p>
-                                        </div>
-                                        <div class="mt-2 flex">
-                                            <div class="flex items-center text-sm text-gray-500">
-                                                <span class="text-gray-400">•</span>
-                                                <p class="ml-2">Users will appear here when they register</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
+            <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Adjust Credits for <span x-text="creditModal.user?.username"></span>
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Current Credits</label>
+                        <p class="text-2xl font-bold text-gray-900" x-text="creditModal.user?.credits"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="credit-amount" class="block text-sm font-medium text-gray-700">Amount to Add/Subtract</label>
+                        <input type="number" id="credit-amount" x-model.number="creditModal.amount" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 100 or -50">
+                    </div>
+                    
+                    <div>
+                        <label for="credit-reason" class="block text-sm font-medium text-gray-700">Reason (optional)</label>
+                        <input type="text" id="credit-reason" x-model="creditModal.reason" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., Bonus credits">
+                    </div>
                 </div>
-            </div>
-
-            <!-- VM Management -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">VM Management</h2>
-                <div class="mt-3 bg-white shadow overflow-hidden sm:rounded-md">
-                    <ul class="divide-y divide-gray-200">
-                        <li>
-                            <div class="px-4 py-4 flex items-center sm:px-6">
-                                <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <div class="flex text-sm">
-                                            <p class="font-medium text-gray-900">No VMs deployed yet</p>
-                                        </div>
-                                        <div class="mt-2 flex">
-                                            <div class="flex items-center text-sm text-gray-500">
-                                                <span class="text-gray-400">•</span>
-                                                <p class="ml-2">VMs will appear here when users create them</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Admin Actions -->
-            <div class="mt-8">
-                <h2 class="text-lg font-medium text-gray-900">Admin Actions</h2>
-                <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        <span class="mr-2">🔄</span>
-                        Refresh System Status
+                
+                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button @click="adjustCredits()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                        Adjust Credits
                     </button>
-                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
-                        <span class="mr-2">🛑</span>
-                        Emergency Stop All VMs
-                    </button>
-                    <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        <span class="mr-2">🗑️</span>
-                        Cleanup Resources
+                    <button @click="creditModal.show = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                        Cancel
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function adminPanel() {
+    return {
+        stats: {},
+        users: [],
+        vms: [],
+        loading: true,
+        creditModal: {
+            show: false,
+            user: null,
+            amount: 0,
+            reason: ''
+        },
+        
+        async init() {
+            await this.loadData();
+            setInterval(() => this.loadData(), 30000);
+        },
+        
+        async loadData() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                const [statsRes, usersRes, vmsRes] = await Promise.all([
+                    fetch('/api/admin/statistics', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch('/api/admin/users', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch('/api/admin/vms', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+                
+                if (statsRes.status === 401 || usersRes.status === 401 || vmsRes.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                this.stats = await statsRes.json();
+                this.users = await usersRes.json();
+                this.vms = await vmsRes.json();
+                this.loading = false;
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+                alert('Error loading admin data: ' + error.message);
+            }
+        },
+        
+        openCreditModal(user) {
+            this.creditModal = {
+                show: true,
+                user: user,
+                amount: 0,
+                reason: ''
+            };
+        },
+        
+        async adjustCredits() {
+            const token = localStorage.getItem('token');
+            const { user, amount, reason } = this.creditModal;
+            
+            if (!amount || amount === 0) {
+                alert('Please enter a non-zero amount');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${user.id}/credits`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ amount, reason })
+                });
+                
+                if (response.ok) {
+                    this.creditModal.show = false;
+                    await this.loadData();
+                    alert(`Credits adjusted successfully!`);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error adjusting credits:', error);
+                alert('Error adjusting credits: ' + error.message);
+            }
+        },
+        
+        async toggleUserStatus(user) {
+            const token = localStorage.getItem('token');
+            const newStatus = !user.is_active;
+            
+            if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} user ${user.username}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${user.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ is_active: newStatus })
+                });
+                
+                if (response.ok) {
+                    await this.loadData();
+                    alert(`User ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error updating user:', error);
+                alert('Error updating user: ' + error.message);
+            }
+        },
+        
+        async deleteUser(user) {
+            const token = localStorage.getItem('token');
+            
+            if (!confirm(`Are you sure you want to DELETE user ${user.username}? This will also destroy all their VMs. This action cannot be undone!`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${user.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    await this.loadData();
+                    alert('User deleted successfully!');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert('Error deleting user: ' + error.message);
+            }
+        },
+        
+        async vmAction(vmId, action) {
+            const token = localStorage.getItem('token');
+            
+            if (action === 'destroy' && !confirm('Are you sure you want to destroy this VM? This action cannot be undone!')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/vms/${vmId}/action`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action })
+                });
+                
+                if (response.ok) {
+                    await this.loadData();
+                    alert(`VM ${action} successful!`);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error performing VM action:', error);
+                alert('Error performing VM action: ' + error.message);
+            }
+        },
+        
+        async emergencyStopAll() {
+            const token = localStorage.getItem('token');
+            
+            if (!confirm('Are you sure you want to STOP ALL RUNNING VMs? This is an emergency action!')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/emergency-stop-all', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    await this.loadData();
+                    alert(`Emergency stop completed! Stopped: ${result.stopped}, Failed: ${result.failed}`);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error performing emergency stop:', error);
+                alert('Error performing emergency stop: ' + error.message);
+            }
+        },
+        
+        async cleanupMetrics() {
+            const token = localStorage.getItem('token');
+            const days = prompt('Delete metrics older than how many days?', '7');
+            
+            if (!days) return;
+            
+            try {
+                const response = await fetch(`/api/metrics/cleanup?days=${days}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Cleanup completed! Deleted ${result.deleted_count} old metrics.`);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error cleaning up metrics:', error);
+                alert('Error cleaning up metrics: ' + error.message);
+            }
+        }
+    };
+}
+</script>
+
+<style>
+[x-cloak] {
+    display: none !important;
+}
+</style>
 {% endblock %}
