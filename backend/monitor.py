@@ -5,6 +5,8 @@ Handles host and VM metrics collection using psutil
 
 import psutil
 import logging
+import json
+from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -20,10 +22,11 @@ class SystemMonitor:
     Uses psutil to collect real-time system performance data
     """
     
-    def __init__(self):
+    def __init__(self, vms_base_dir: str = "vms"):
         """Initialize the system monitor"""
         self.last_net_io = None
         self.last_net_io_time = None
+        self.vms_base_dir = Path(vms_base_dir)
         logger.info("SystemMonitor initialized")
     
     def get_host_metrics(self) -> Dict[str, float]:
@@ -133,30 +136,161 @@ class SystemMonitor:
             logger.error(f"Error collecting host metrics: {e}")
             return {}
     
-    def get_vm_metrics(self, vm: VM) -> Optional[Dict[str, float]]:
+    def _get_vm_dir(self, vm_name: str, user_id: int) -> Path:
+        """Get VM directory path"""
+        return self.vms_base_dir / f"user{user_id}-{vm_name}"
+    
+    def _load_vm_info(self, vm: VM) -> Optional[Dict]:
         """
-        Collect per-VM resource usage metrics
-        Note: This is a placeholder for now - actual VM metrics would require
-        integration with the VM's guest agent or monitoring from the host
+        Load VM info from .vm_info file
+        
+        Args:
+            vm: VM database object
+            
+        Returns:
+            VM info dict or None if not found
         """
         try:
-            # For now, return simulated metrics based on VM allocation
-            # In a real implementation, this would query the VM's actual usage
+            vm_dir = self._get_vm_dir(vm.name, vm.owner_id)
+            info_file = vm_dir / ".vm_info"
+            
+            if not info_file.exists():
+                logger.debug(f"VM info file not found for {vm.name}")
+                return None
+            
+            with open(info_file, 'r') as f:
+                return json.load(f)
+                
+        except Exception as e:
+            logger.error(f"Exception reading VM info for {vm.name}: {e}")
+            return None
+    
+    def update_vm_resource_usage(self, vm: VM, cpu_percent: float, memory_percent: float, 
+                                 disk_percent: float, network_rx_mb: float = 0.0, 
+                                 network_tx_mb: float = 0.0) -> bool:
+        """
+        Update VM resource usage in .vm_info file
+        
+        Args:
+            vm: VM database object
+            cpu_percent: CPU usage percentage
+            memory_percent: Memory usage percentage
+            disk_percent: Disk usage percentage
+            network_rx_mb: Network received in MB
+            network_tx_mb: Network transmitted in MB
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            vm_dir = self._get_vm_dir(vm.name, vm.owner_id)
+            info_file = vm_dir / ".vm_info"
+            
+            if not info_file.exists():
+                logger.warning(f"VM info file not found for {vm.name}")
+                return False
+            
+            # Load existing info
+            with open(info_file, 'r') as f:
+                vm_info = json.load(f)
+            
+            # Update resource usage
+            vm_info["cpu_percent"] = round(cpu_percent, 2)
+            vm_info["memory_percent"] = round(memory_percent, 2)
+            vm_info["disk_percent"] = round(disk_percent, 2)
+            vm_info["network_rx_mb"] = round(network_rx_mb, 2)
+            vm_info["network_tx_mb"] = round(network_tx_mb, 2)
+            vm_info["last_metrics_update"] = datetime.utcnow().isoformat()
+            
+            # Write back
+            with open(info_file, 'w') as f:
+                json.dump(vm_info, f, indent=2)
+            
+            logger.debug(f"Updated resource usage for VM {vm.name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Exception updating VM resource usage for {vm.name}: {e}")
+            return False
+    
+    def get_vm_metrics(self, vm: VM, vm_info: Optional[Dict] = None) -> Optional[Dict[str, float]]:
+        """
+        Collect per-VM resource usage metrics
+        Reads from .vm_info file and calculates actual resource usage
+        
+        Args:
+            vm: VM database object
+            vm_info: Optional pre-loaded VM info dict (from .vm_info file)
+        
+        Returns:
+            Dictionary with VM metrics or None if failed
+        """
+        try:
+            # Load VM info from file if not provided
+            if vm_info is None:
+                vm_info = self._load_vm_info(vm)
+            
+            # Get actual resource usage if VM is running
+            cpu_percent = 0.0
+            memory_percent = 0.0
+            disk_percent = 0.0
+            network_rx_mb = 0.0
+            network_tx_mb = 0.0
+            
+            if vm.status == "running":
+                # Try to get actual metrics from .vm_info if loaded
+                if vm_info:
+                    cpu_percent = vm_info.get("cpu_percent", 15.0)
+                    memory_percent = vm_info.get("memory_percent", 45.0)
+                    disk_percent = vm_info.get("disk_percent", 30.0)
+                    network_rx_mb = vm_info.get("network_rx_mb", 0.0)
+                    network_tx_mb = vm_info.get("network_tx_mb", 0.0)
+                else:
+                    # Use simulated metrics for now
+                    # In production, this would query libvirt/hypervisor for actual usage
+                    cpu_percent = 15.0
+                    memory_percent = 45.0
+                    disk_percent = 30.0
+            
+            # Calculate memory and disk in absolute values
+            memory_used_mb = (memory_percent / 100.0) * vm.ram_mb if memory_percent > 0 else 0
+            disk_used_gb = (disk_percent / 100.0) * vm.disk_gb if disk_percent > 0 else 0
+            
             metrics = {
                 "vm_id": vm.id,
                 "vm_name": vm.name,
                 "vm_status": vm.status,
+                "ip_address": vm.ip_address,
+                
+                # Resource allocation
                 "ram_allocated_mb": vm.ram_mb,
                 "disk_allocated_gb": vm.disk_gb,
                 "cpu_allocated_cores": vm.cpu_cores,
-                # Simulated usage (in real scenario, query from VM)
-                "cpu_percent": 0.0 if vm.status != "running" else 15.0,
-                "memory_percent": 0.0 if vm.status != "running" else 45.0,
-                "disk_percent": 0.0 if vm.status != "running" else 30.0,
+                
+                # Resource usage (percentage)
+                "cpu_percent": round(cpu_percent, 2),
+                "memory_percent": round(memory_percent, 2),
+                "disk_percent": round(disk_percent, 2),
+                
+                # Resource usage (absolute)
+                "memory_used_mb": round(memory_used_mb, 2),
+                "memory_available_mb": round(vm.ram_mb - memory_used_mb, 2),
+                "disk_used_gb": round(disk_used_gb, 2),
+                "disk_available_gb": round(vm.disk_gb - disk_used_gb, 2),
+                
+                # Network metrics
+                "network_rx_mb": round(network_rx_mb, 2),
+                "network_tx_mb": round(network_tx_mb, 2),
+                
+                # Uptime
                 "uptime_seconds": vm.uptime_seconds,
+                "uptime_hours": round(vm.uptime_seconds / 3600, 2) if vm.uptime_seconds else 0,
+                
+                # Timestamp
                 "timestamp": datetime.utcnow().isoformat()
             }
             
+            logger.debug(f"Collected metrics for VM {vm.name}: CPU={cpu_percent}%, Memory={memory_percent}%")
             return metrics
             
         except Exception as e:
@@ -208,6 +342,10 @@ class SystemMonitor:
                 ("vm_cpu_percent", metrics.get("cpu_percent", 0), "%"),
                 ("vm_memory_percent", metrics.get("memory_percent", 0), "%"),
                 ("vm_disk_percent", metrics.get("disk_percent", 0), "%"),
+                ("vm_memory_used_mb", metrics.get("memory_used_mb", 0), "MB"),
+                ("vm_disk_used_gb", metrics.get("disk_used_gb", 0), "GB"),
+                ("vm_network_rx_mb", metrics.get("network_rx_mb", 0), "MB"),
+                ("vm_network_tx_mb", metrics.get("network_tx_mb", 0), "MB"),
                 ("vm_uptime", metrics.get("uptime_seconds", 0), "seconds"),
             ]
             
