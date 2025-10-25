@@ -133,11 +133,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 ### 🏗️ Phase 6: Web Terminal Integration (Day 6)
 
 #### 6.1 Terminal Backend Setup
-- [ ] Research and integrate ttyd for web terminal access
-- [ ] Implement VM IP discovery from Vagrant
-- [ ] Create terminal session management
-- [ ] Add terminal access security controls
-- [ ] Implement terminal session logging
+- [x] Research and integrate ttyd for web terminal access
+- [x] Implement VM IP discovery from Vagrant
+- [x] Create terminal session management
+- [x] Add terminal access security controls
+- [x] Implement terminal session logging
 
 #### 6.2 Terminal UI Integration
 - [ ] Create terminal iframe embedding
@@ -171,7 +171,7 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 85% (88/103 tasks completed)
+### Overall Progress: 90% (93/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (22/22 tasks)
@@ -179,16 +179,63 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 - Phase 3 (Monitoring): 100% (15/15 tasks)
 - Phase 4 (SOC Dashboard): 100% (15/15 tasks)
 - Phase 5 (Admin Dashboard): 100% (18/18 tasks)
-- Phase 6 (Web Terminal): 0% (0/10 tasks)
+- Phase 6 (Web Terminal): 50% (5/10 tasks)
 - Phase 7 (Polish & Docs): 0% (0/9 tasks)
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 5 (Admin Dashboard) - 100% complete!
+**✅ Completed:** Phase 6.1 (Terminal Backend Setup) - 100% complete!
 
-**Next:** Phase 6 - Web Terminal Integration
+**Next:** Phase 6.2 - Terminal UI Integration
 
 ## 📝 Recent Changes
+
+**2025-10-25 23:30:** ✅ Completed Phase 6.1 - Terminal Backend Setup
+- Created comprehensive TerminalManager class in terminal.py for web-based terminal access
+- Integrated ttyd (terminal sharing over HTTP/WebSocket) for web terminal functionality
+- Implemented TerminalSession class to track active terminal sessions with session IDs, tokens, and timestamps
+- Added VM IP discovery from Vagrant (already existed in vm_manager.py at line 517 via vagrant ssh-config)
+- Created terminal session management system:
+  - start_terminal_session() - Launches ttyd process bound to VM's SSH connection
+  - stop_terminal_session() - Terminates ttyd process and cleans up session
+  - get_terminal_session() - Retrieves active session information
+  - cleanup_expired_sessions() - Automatic cleanup of inactive sessions (30-minute timeout)
+  - stop_all_sessions() - Emergency stop for all active sessions
+- Implemented security controls:
+  - User ownership verification (users can only access their own VMs or admin can access all)
+  - Secure token generation for each session (using secrets.token_urlsafe)
+  - Session activity tracking with automatic expiration
+  - VM status validation (terminal only available for running VMs)
+  - verify_session_access() method for access control
+- Added comprehensive terminal event logging:
+  - All terminal access attempts logged to Event model
+  - Session start/stop events with detailed information
+  - Failed access attempts logged with severity levels
+  - Integration with existing SOC feed
+- Created 8 terminal API endpoints in main.py:
+  - POST /api/terminal/start/{vm_id} - Start terminal session
+  - DELETE /api/terminal/stop/{vm_id} - Stop terminal session
+  - GET /api/terminal/session/{vm_id} - Get session info
+  - GET /api/terminal/sessions - List user's active sessions
+  - GET /api/admin/terminal/sessions - Admin view all sessions
+  - POST /api/admin/terminal/cleanup - Admin cleanup expired sessions
+  - POST /api/admin/terminal/stop-all - Admin emergency stop all sessions
+- Integrated terminal manager with application lifecycle:
+  - Terminal manager initialized at module level
+  - Automatic session cleanup on application shutdown
+- Terminal sessions include:
+  - Unique session IDs and secure tokens
+  - Port allocation system (starting from 7681)
+  - Process management for ttyd instances
+  - Activity tracking and timeout handling
+  - Session metadata (created_at, last_activity, is_alive status)
+- ttyd command configuration:
+  - Authentication with user:token credentials
+  - Custom terminal title with VM name
+  - Writable terminal (allows input)
+  - Executes 'vagrant ssh' command for VM access
+- **Phase 6.1 (Terminal Backend Setup) is now 100% complete! (5/5 tasks)**
+- **Phase 6 (Web Terminal Integration) is now 50% complete! (5/10 tasks)**
 
 **2025-10-25 22:00:** ✅ Completed Phase 5.2 & 5.3 - Admin-specific SOC Feed & Bulk User Operations
 - Added comprehensive admin-specific SOC feed section to admin.html:
@@ -479,4 +526,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-25 22:00*
+*Last updated: 2025-10-25 23:30*
