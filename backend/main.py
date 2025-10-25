@@ -21,6 +21,7 @@ from .schemas import (
     EventResponse, UserResponse
 )
 from .vm_manager import vm_manager
+from .monitor import system_monitor
 
 # Configure logging
 import os
@@ -153,6 +154,162 @@ async def internal_error_handler(request: Request, exc):
     """Handle 500 errors"""
     logger.error(f"Internal server error: {exc}")
     return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
+
+# ==================== MONITORING API ENDPOINTS ====================
+
+@app.get("/api/metrics/host")
+async def get_host_metrics(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get current host system metrics"""
+    metrics = system_monitor.get_host_metrics()
+    
+    if not metrics:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to collect host metrics"
+        )
+    
+    return metrics
+
+@app.get("/api/metrics/host/history")
+async def get_host_metrics_history(
+    metric_name: str,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get historical host metrics"""
+    metrics = system_monitor.get_historical_metrics(db, metric_name, vm_id=None, limit=limit)
+    
+    return {
+        "metric_name": metric_name,
+        "count": len(metrics),
+        "data": [
+            {
+                "value": m.value,
+                "unit": m.unit,
+                "timestamp": m.timestamp.isoformat()
+            }
+            for m in metrics
+        ]
+    }
+
+@app.get("/api/metrics/vm/{vm_id}")
+async def get_vm_metrics(
+    vm_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get current VM metrics"""
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this VM"
+        )
+    
+    metrics = system_monitor.get_vm_metrics(vm)
+    
+    if not metrics:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to collect VM metrics"
+        )
+    
+    return metrics
+
+@app.get("/api/metrics/vm/{vm_id}/history")
+async def get_vm_metrics_history(
+    vm_id: int,
+    metric_name: str,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get historical VM metrics"""
+    vm = db.query(VM).filter(VM.id == vm_id).first()
+    
+    if not vm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VM not found"
+        )
+    
+    if vm.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this VM"
+        )
+    
+    metrics = system_monitor.get_historical_metrics(db, metric_name, vm_id=vm_id, limit=limit)
+    
+    return {
+        "vm_id": vm_id,
+        "metric_name": metric_name,
+        "count": len(metrics),
+        "data": [
+            {
+                "value": m.value,
+                "unit": m.unit,
+                "timestamp": m.timestamp.isoformat()
+            }
+            for m in metrics
+        ]
+    }
+
+@app.post("/api/metrics/collect")
+async def collect_metrics(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Manually trigger metric collection and storage"""
+    metrics, alerts = system_monitor.collect_and_store_all_metrics(db)
+    
+    return {
+        "success": True,
+        "metrics": metrics,
+        "alerts": alerts,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.delete("/api/metrics/cleanup")
+async def cleanup_old_metrics(
+    days: int = 7,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin: Clean up old metrics"""
+    deleted = system_monitor.cleanup_old_metrics(db, days_to_keep=days)
+    
+    return {
+        "success": True,
+        "deleted_count": deleted,
+        "days_kept": days
+    }
+
+@app.get("/api/metrics/alerts")
+async def get_resource_alerts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get current resource usage alerts"""
+    metrics = system_monitor.get_host_metrics()
+    alerts = system_monitor.check_resource_thresholds(db, metrics)
+    
+    return {
+        "alerts": alerts,
+        "count": len(alerts),
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 # ==================== VM API ENDPOINTS ====================
 

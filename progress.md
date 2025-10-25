@@ -64,11 +64,11 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 ### 🏗️ Phase 3: Monitoring System (Day 3)
 
 #### 3.1 System Monitoring Implementation
-- [ ] Create monitor.py with psutil integration
-- [ ] Implement host system metrics collection (CPU, RAM, disk, network)
-- [ ] Add periodic metric collection every 5 seconds
-- [ ] Store historical metrics in database
-- [ ] Create metrics API endpoints
+- [x] Create monitor.py with psutil integration
+- [x] Implement host system metrics collection (CPU, RAM, disk, network)
+- [x] Add periodic metric collection every 5 seconds
+- [x] Store historical metrics in database
+- [x] Create metrics API endpoints
 
 #### 3.2 VM Monitoring
 - [ ] Implement per-VM resource usage tracking
@@ -171,12 +171,12 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 📊 Progress Summary
 
-### Overall Progress: 25% (26/103 tasks completed)
+### Overall Progress: 30% (31/103 tasks completed)
 
 ### Phase Progress:
 - Phase 1 (Foundation): 100% (12/12 tasks)
 - Phase 2 (VM Lifecycle): 100% (14/14 tasks)
-- Phase 3 (Monitoring): 0% (0/9 tasks)
+- Phase 3 (Monitoring): 56% (5/9 tasks)
 - Phase 4 (SOC Dashboard): 0% (0/9 tasks)
 - Phase 5 (Admin Dashboard): 0% (0/9 tasks)
 - Phase 6 (Web Terminal): 0% (0/6 tasks)
@@ -184,11 +184,39 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ## 🎯 Current Focus
 
-**✅ Completed:** Phase 2.3 - VM Management UI (100%)
+**✅ Completed:** Phase 3.1 - System Monitoring Implementation (100%)
 
-**Next:** Phase 3.1 - System Monitoring Implementation
+**Next:** Phase 3.2 - VM Monitoring
 
 ## 📝 Recent Changes
+
+**2025-10-25 15:30:** ✅ Completed Phase 3.1 - System Monitoring Implementation
+- Created comprehensive SystemMonitor class in monitor.py
+- Implemented host system metrics collection with psutil
+- Collects CPU usage, count, and frequency metrics
+- Tracks memory usage (percent, used, total, available) and swap metrics
+- Monitors disk usage (percent, used, total, free) and disk I/O
+- Collects network I/O statistics and calculates real-time network speed
+- Implemented system uptime tracking
+- Added store_host_metrics() for saving metrics to database
+- Created store_vm_metrics() for per-VM metric storage
+- Implemented get_historical_metrics() for retrieving metric history
+- Added check_resource_thresholds() with configurable alert thresholds
+- CPU alert at 90%, memory at 85%, disk at 90%, swap at 50%
+- Created alert event logging system integrated with Event model
+- Implemented collect_and_store_all_metrics() for comprehensive metric collection
+- Added cleanup_old_metrics() for automatic metric retention management
+- Created 8 monitoring API endpoints in main.py:
+  - GET /api/metrics/host - Get current host metrics
+  - GET /api/metrics/host/history - Get historical host metrics
+  - GET /api/metrics/vm/{vm_id} - Get current VM metrics
+  - GET /api/metrics/vm/{vm_id}/history - Get historical VM metrics
+  - POST /api/metrics/collect - Admin manual metric collection trigger
+  - DELETE /api/metrics/cleanup - Admin metric cleanup
+  - GET /api/metrics/alerts - Get current resource alerts
+- All metrics stored in Metric database model
+- Alert events logged to Event table for SOC feed integration
+- **Phase 3.1 is now 100% complete!**
 
 **2025-10-25 14:00:** ✅ Completed Phase 2.3 - VM Management UI
 - Created comprehensive dashboard UI with Alpine.js for state management
@@ -268,4 +296,4 @@ Build a local cloud simulation lab using FastAPI + Vagrant (KVM) that lets users
 
 ---
 
-*Last updated: 2025-10-25 14:00*
+*Last updated: 2025-10-25 15:30*
