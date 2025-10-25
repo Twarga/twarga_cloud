@@ -120,7 +120,24 @@
 
         <!-- User Management -->
         <div class="bg-white shadow rounded-lg p-6">
-            <h2 class="text-lg font-medium text-gray-900 mb-4">User Management</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-900">User Management</h2>
+                <div x-show="selectedUsers.length > 0" class="flex space-x-2">
+                    <span class="text-sm text-gray-600 py-2" x-text="`${selectedUsers.length} selected`"></span>
+                    <button @click="openBulkCreditModal()" class="text-sm px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        Bulk Credits
+                    </button>
+                    <button @click="bulkDeactivate()" class="text-sm px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+                        Bulk Deactivate
+                    </button>
+                    <button @click="bulkActivate()" class="text-sm px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        Bulk Activate
+                    </button>
+                    <button @click="selectedUsers = []" class="text-sm px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                        Clear Selection
+                    </button>
+                </div>
+            </div>
             
             <template x-if="loading">
                 <div class="text-center py-8 text-gray-500">
@@ -139,6 +156,9 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <input type="checkbox" @change="toggleSelectAll($event)" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -149,7 +169,10 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <template x-for="user in users" :key="user.id">
-                                <tr>
+                                <tr :class="selectedUsers.includes(user.id) ? 'bg-indigo-50' : ''">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="checkbox" :value="user.id" @change="toggleUserSelection(user.id, $event)" :checked="selectedUsers.includes(user.id)" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900" x-text="user.username"></div>
                                         <div class="text-xs text-gray-500" x-text="`ID: ${user.id}`"></div>
@@ -244,6 +267,75 @@
                 </div>
             </template>
         </div>
+
+        <!-- Security Operations Center (SOC) Feed -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-900">Security Events (SOC Feed)</h2>
+                <div class="flex space-x-2">
+                    <select x-model="socFilters.severity" @change="loadSOCEvents()" class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">All Severities</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                    <select x-model="socFilters.type" @change="loadSOCEvents()" class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">All Types</option>
+                        <option value="vm">VM Events</option>
+                        <option value="auth">Authentication</option>
+                        <option value="admin">Admin Actions</option>
+                        <option value="security">Security</option>
+                        <option value="system">System</option>
+                    </select>
+                    <button @click="loadSOCEvents()" class="text-sm px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <template x-if="socLoading">
+                <div class="text-center py-8 text-gray-500">
+                    Loading security events...
+                </div>
+            </template>
+            
+            <template x-if="!socLoading && socEvents.length === 0">
+                <div class="text-center py-8 text-gray-500">
+                    No security events found
+                </div>
+            </template>
+            
+            <template x-if="!socLoading && socEvents.length > 0">
+                <div class="space-y-2 max-h-96 overflow-y-auto">
+                    <template x-for="event in socEvents" :key="event.id">
+                        <div :class="{
+                            'border-l-4 border-blue-500 bg-blue-50': event.severity === 'info',
+                            'border-l-4 border-yellow-500 bg-yellow-50': event.severity === 'warning',
+                            'border-l-4 border-red-500 bg-red-50': event.severity === 'critical'
+                        }" class="p-3 rounded-r-md">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span :class="{
+                                            'bg-blue-100 text-blue-800': event.severity === 'info',
+                                            'bg-yellow-100 text-yellow-800': event.severity === 'warning',
+                                            'bg-red-100 text-red-800': event.severity === 'critical'
+                                        }" class="px-2 py-1 text-xs font-semibold rounded-full" x-text="event.severity.toUpperCase()"></span>
+                                        <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full" x-text="event.type"></span>
+                                        <span class="text-xs text-gray-400" x-text="new Date(event.created_at).toLocaleString()"></span>
+                                    </div>
+                                    <p class="text-sm text-gray-900 mt-1" x-text="event.message"></p>
+                                    <div class="flex space-x-3 mt-1 text-xs text-gray-500">
+                                        <span x-show="event.user" x-text="`User: ${event.user || event.user_id || 'N/A'}`"></span>
+                                        <span x-show="event.vm_name" x-text="`VM: ${event.vm_name || event.vm_id || ''}`"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
     </div>
 
     <!-- Credit Adjustment Modal -->
@@ -286,6 +378,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Bulk Credit Adjustment Modal -->
+    <div x-show="bulkCreditModal.show" class="fixed z-10 inset-0 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" @click="bulkCreditModal.show = false">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Bulk Credit Adjustment for <span x-text="selectedUsers.length"></span> Users
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Selected Users</label>
+                        <p class="text-sm text-gray-600" x-text="`Adjusting credits for ${selectedUsers.length} user(s)`"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="bulk-credit-amount" class="block text-sm font-medium text-gray-700">Amount to Add/Subtract</label>
+                        <input type="number" id="bulk-credit-amount" x-model.number="bulkCreditModal.amount" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 100 or -50">
+                    </div>
+                    
+                    <div>
+                        <label for="bulk-credit-reason" class="block text-sm font-medium text-gray-700">Reason (optional)</label>
+                        <input type="text" id="bulk-credit-reason" x-model="bulkCreditModal.reason" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., Bulk bonus credits">
+                    </div>
+                </div>
+                
+                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button @click="bulkAdjustCredits()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                        Adjust Credits
+                    </button>
+                    <button @click="bulkCreditModal.show = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -295,16 +428,31 @@ function adminPanel() {
         users: [],
         vms: [],
         loading: true,
+        selectedUsers: [],
+        socEvents: [],
+        socLoading: false,
+        socFilters: {
+            severity: '',
+            type: '',
+            hours: 24
+        },
         creditModal: {
             show: false,
             user: null,
             amount: 0,
             reason: ''
         },
+        bulkCreditModal: {
+            show: false,
+            amount: 0,
+            reason: ''
+        },
         
         async init() {
             await this.loadData();
+            await this.loadSOCEvents();
             setInterval(() => this.loadData(), 30000);
+            setInterval(() => this.loadSOCEvents(), 10000);
         },
         
         async loadData() {
@@ -527,6 +675,206 @@ function adminPanel() {
             } catch (error) {
                 console.error('Error cleaning up metrics:', error);
                 alert('Error cleaning up metrics: ' + error.message);
+            }
+        },
+        
+        toggleUserSelection(userId, event) {
+            if (event.target.checked) {
+                if (!this.selectedUsers.includes(userId)) {
+                    this.selectedUsers.push(userId);
+                }
+            } else {
+                this.selectedUsers = this.selectedUsers.filter(id => id !== userId);
+            }
+        },
+        
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selectedUsers = this.users.map(u => u.id);
+            } else {
+                this.selectedUsers = [];
+            }
+        },
+        
+        openBulkCreditModal() {
+            if (this.selectedUsers.length === 0) {
+                alert('Please select at least one user');
+                return;
+            }
+            this.bulkCreditModal = {
+                show: true,
+                amount: 0,
+                reason: ''
+            };
+        },
+        
+        async bulkAdjustCredits() {
+            const token = localStorage.getItem('token');
+            const { amount, reason } = this.bulkCreditModal;
+            
+            if (!amount || amount === 0) {
+                alert('Please enter a non-zero amount');
+                return;
+            }
+            
+            if (!confirm(`Adjust credits by ${amount} for ${this.selectedUsers.length} user(s)?`)) {
+                return;
+            }
+            
+            try {
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const userId of this.selectedUsers) {
+                    const response = await fetch(`/api/admin/users/${userId}/credits`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ amount, reason: reason || 'Bulk credit adjustment' })
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                }
+                
+                this.bulkCreditModal.show = false;
+                this.selectedUsers = [];
+                await this.loadData();
+                alert(`Bulk credit adjustment completed! Success: ${successCount}, Failed: ${errorCount}`);
+            } catch (error) {
+                console.error('Error adjusting bulk credits:', error);
+                alert('Error adjusting bulk credits: ' + error.message);
+            }
+        },
+        
+        async bulkDeactivate() {
+            if (this.selectedUsers.length === 0) {
+                alert('Please select at least one user');
+                return;
+            }
+            
+            if (!confirm(`Deactivate ${this.selectedUsers.length} user(s)?`)) {
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const userId of this.selectedUsers) {
+                    const response = await fetch(`/api/admin/users/${userId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ is_active: false })
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                }
+                
+                this.selectedUsers = [];
+                await this.loadData();
+                alert(`Bulk deactivation completed! Success: ${successCount}, Failed: ${errorCount}`);
+            } catch (error) {
+                console.error('Error deactivating users:', error);
+                alert('Error deactivating users: ' + error.message);
+            }
+        },
+        
+        async bulkActivate() {
+            if (this.selectedUsers.length === 0) {
+                alert('Please select at least one user');
+                return;
+            }
+            
+            if (!confirm(`Activate ${this.selectedUsers.length} user(s)?`)) {
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const userId of this.selectedUsers) {
+                    const response = await fetch(`/api/admin/users/${userId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ is_active: true })
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                }
+                
+                this.selectedUsers = [];
+                await this.loadData();
+                alert(`Bulk activation completed! Success: ${successCount}, Failed: ${errorCount}`);
+            } catch (error) {
+                console.error('Error activating users:', error);
+                alert('Error activating users: ' + error.message);
+            }
+        },
+        
+        async loadSOCEvents() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                return;
+            }
+            
+            this.socLoading = true;
+            
+            try {
+                const params = new URLSearchParams({
+                    limit: '50',
+                    hours: this.socFilters.hours.toString()
+                });
+                
+                if (this.socFilters.severity) {
+                    params.append('severity', this.socFilters.severity);
+                }
+                
+                if (this.socFilters.type) {
+                    params.append('event_type', this.socFilters.type);
+                }
+                
+                const response = await fetch(`/api/admin/soc/all-events?${params}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                if (response.ok) {
+                    this.socEvents = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading SOC events:', error);
+            } finally {
+                this.socLoading = false;
             }
         }
     };
